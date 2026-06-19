@@ -115,7 +115,8 @@ async function checkTokenStatus() {
 
 function _updateSubmitButtons() {
   const hasTRE = !!currentTREFile;
-  if (btnSubmitSST) btnSubmitSST.disabled = !hasTRE;
+  if (btnSubmitSST)   btnSubmitSST.disabled   = !hasTRE || !_hasToken;
+  if (btnSubmitAllSST) btnSubmitAllSST.disabled = treQueue.length === 0 || !_hasToken;
 }
 
 btnSetToken?.addEventListener('click', async () => {
@@ -215,7 +216,7 @@ function renderTREQueue() {
   treQueueBadge.textContent = treQueue.length;
 
   const allParsed = treQueue.every(q => q.status !== 'pending');
-  btnSubmitAllSST.disabled = !allParsed || treQueue.length === 0;
+  btnSubmitAllSST.disabled = !allParsed || treQueue.length === 0 || !_hasToken;
 
   treQueue.forEach((item, idx) => {
     const div = document.createElement('div');
@@ -235,16 +236,27 @@ function renderTREQueue() {
           ? '<span class="tag tag--fail">Error</span>'
           : '<span class="tag" style="background:rgba(100,116,139,.15);color:var(--text3)">Pending</span>';
 
+    const canSubmit = item.status === 'parsed' || item.status === 'done';
     div.innerHTML = `
       <div>
         <div class="tre-queue-item__name">${item.file.name}</div>
         <div class="tre-queue-item__meta">R1: ${r1} lbs &nbsp;·&nbsp; ${ct}</div>
       </div>
       <div class="tre-queue-item__status">${statusHtml}</div>
-      <button class="btn btn--ghost btn--sm" onclick="selectTREItem(${idx})">View</button>`;
+      <div style="display:flex;gap:4px">
+        <button class="btn btn--ghost btn--sm" onclick="selectTREItem(${idx})">View</button>
+        <button class="btn btn--accent btn--sm" onclick="findHangersForItem(${idx})" ${!canSubmit || !_hasToken ? 'disabled' : ''}>⚡</button>
+      </div>`;
 
     treQueueList.appendChild(div);
   });
+}
+
+async function findHangersForItem(idx) {
+  const item = treQueue[idx];
+  if (!item || !_hasToken) return;
+  selectTREItem(idx);
+  await _doSubmitSST('/api/submit-sst-api', `Finding hangers for ${item.file.name}…`);
 }
 
 function selectTREItem(idx) {
