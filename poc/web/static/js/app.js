@@ -115,8 +115,7 @@ async function checkTokenStatus() {
 
 function _updateSubmitButtons() {
   const hasTRE = !!currentTREFile;
-  if (btnSubmitSST)      btnSubmitSST.disabled      = !hasTRE || !_hasToken;
-  if (btnSubmitSSTPlay)  btnSubmitSSTPlay.disabled   = !hasTRE;
+  if (btnSubmitSST) btnSubmitSST.disabled = !hasTRE;
 }
 
 btnSetToken?.addEventListener('click', async () => {

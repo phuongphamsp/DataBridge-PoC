@@ -72,7 +72,10 @@
       <div class="card__title">
         2 · TRE Files
         <span id="treQueueBadge" class="badge"></span>
-        <button class="btn btn--ghost btn--sm" id="btnSubmitAllSST" disabled>Submit All to SST</button>
+        <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
+          <button class="btn btn--ghost btn--sm" id="btnSubmitSST" disabled>⚡ Submit</button>
+          <button class="btn btn--accent btn--sm" id="btnSubmitAllSST" disabled>⚡ Submit All</button>
+        </div>
       </div>
       <div id="treQueueList" class="tre-queue"></div>
     </div>
@@ -87,15 +90,7 @@
     <div class="card" id="cardSST" style="display:none">
       <div class="card__title">3 · SST Mapped Inputs</div>
       <div id="sstInputGrid" class="data-grid"></div>
-      <div class="card__actions">
-        <button class="btn btn--accent" id="btnSubmitSST" disabled>
-          <span class="btn__icon">⚡</span> Submit to SST (API)
-        </button>
-        <button class="btn btn--ghost btn--sm" id="btnSubmitSSTPlaywright" disabled style="margin-left:4px">
-          Playwright fallback
-        </button>
-        <span class="hint" id="submitHint">Set Bearer token above to enable fast API submit</span>
-      </div>
+      <button class="btn btn--ghost btn--sm" id="btnSubmitSSTPlaywright" disabled style="display:none"></button>
     </div>
 
     <!-- IFC Metadata (shown when IFC uploaded) -->
@@ -113,14 +108,14 @@
 
     <!-- Tab bar -->
     <div class="right-tabs">
-      <button class="right-tab active" data-tab="tabDiagram">Diagram</button>
-      <button class="right-tab" data-tab="tabAnalyzer">Truss Analyzer</button>
-      <button class="right-tab" data-tab="tabIFC">IFC Viewer</button>
+      <button class="right-tab" data-tab="tabDiagram" style="display:none">Diagram</button>
+      <button class="right-tab active" data-tab="tabAnalyzer">Truss Analyzer</button>
+      <button class="right-tab" data-tab="tabIFC" style="display:none">IFC Viewer</button>
       <button class="right-tab" data-tab="tabResults">Results</button>
     </div>
 
     <!-- ── TAB: Diagram ── -->
-    <div class="right-tab-panel active" id="tabDiagram">
+    <div class="right-tab-panel" id="tabDiagram">
       <div class="card card--diagram" id="cardDiagram">
         <div class="viewer-toolbar">
           <span class="viewer-toolbar__title">2D Truss Diagram</span>
@@ -140,7 +135,7 @@
     </div>
 
     <!-- ── TAB: Truss Analyzer ── -->
-    <div class="right-tab-panel" id="tabAnalyzer">
+    <div class="right-tab-panel active" id="tabAnalyzer">
       <div class="card analyzer-card">
         <div class="card__title">
           Truss Analyzer
