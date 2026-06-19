@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataBridge PoC — MiTek → Simpson Strong-Tie</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ HEADER -->
+<header class="header">
+  <div class="header__logo">
+    <span class="header__icon">🏗️</span>
+    <div>
+      <div class="header__title">DataBridge PoC</div>
+      <div class="header__sub">MiTek TRE / IFC → Simpson Strong-Tie Hanger Selector</div>
+    </div>
+  </div>
+  <div class="header__badge">PoC v0.1</div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════ MAIN LAYOUT -->
+<main class="layout">
+
+  <!-- ─────────────────────────────── LEFT PANEL: Upload + Parsed Data -->
+  <section class="panel panel--left">
+
+    <!-- Upload Zone -->
+    <div class="card">
+      <div class="card__title">1 · Upload Files</div>
+      <div class="upload-two-col">
+        <!-- TRE upload (multi-file) -->
+        <div class="upload-slot">
+          <div class="upload-slot__label">TRE Files <span class="upload-slot__hint">engineering data + SST</span></div>
+          <div class="upload-slot__drop" id="dropTRE">
+            <span class="upload-slot__icon">&#128196;</span>
+            <span id="treFileName">No file selected</span>
+          </div>
+          <input type="file" id="inputTRE" accept="*" multiple hidden />
+          <button class="btn btn--primary btn--full" id="btnPickTRE">Select TRE File(s)</button>
+        </div>
+        <!-- IFC upload -->
+        <div class="upload-slot">
+          <div class="upload-slot__label">IFC File <span class="upload-slot__hint">3D viewer</span></div>
+          <div class="upload-slot__drop" id="dropIFC">
+            <span class="upload-slot__icon">&#127968;</span>
+            <span id="ifcFileName">No file selected</span>
+          </div>
+          <input type="file" id="inputIFC" accept="*" hidden />
+          <button class="btn btn--secondary btn--full" id="btnPickIFC">Select IFC File</button>
+        </div>
+      </div>
+      <div id="uploadStatus" class="status-bar" style="display:none"></div>
+
+      <!-- SST Bearer Token -->
+      <div class="token-row">
+        <div class="token-row__label">
+          SST Bearer Token
+          <span class="token-row__hint">From DevTools → app.strongtie.com/hs → Network → any XHR → Authorization header</span>
+        </div>
+        <div class="token-row__input-wrap">
+          <input type="password" id="inputToken" class="token-input" placeholder="Paste Bearer token here…" autocomplete="off" />
+          <button class="btn btn--ghost btn--sm" id="btnSetToken">Set</button>
+          <span id="tokenStatus" class="token-status"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRE Queue -->
+    <div class="card" id="cardTREQueue" style="display:none">
+      <div class="card__title">
+        2 · TRE Files
+        <span id="treQueueBadge" class="badge"></span>
+        <button class="btn btn--ghost btn--sm" id="btnSubmitAllSST" disabled>Submit All to SST</button>
+      </div>
+      <div id="treQueueList" class="tre-queue"></div>
+    </div>
+
+    <!-- Parsed TRE Data -->
+    <div class="card" id="cardTRE" style="display:none">
+      <div class="card__title">2 · Parsed TRE Data</div>
+      <div id="treDataGrid" class="data-grid"></div>
+    </div>
+
+    <!-- SST Mapped Inputs -->
+    <div class="card" id="cardSST" style="display:none">
+      <div class="card__title">3 · SST Mapped Inputs</div>
+      <div id="sstInputGrid" class="data-grid"></div>
+      <div class="card__actions">
+        <button class="btn btn--accent" id="btnSubmitSST" disabled>
+          <span class="btn__icon">⚡</span> Submit to SST (API)
+        </button>
+        <button class="btn btn--ghost btn--sm" id="btnSubmitSSTPlaywright" disabled style="margin-left:4px">
+          Playwright fallback
+        </button>
+        <span class="hint" id="submitHint">Set Bearer token above to enable fast API submit</span>
+      </div>
+    </div>
+
+    <!-- IFC Metadata (shown when IFC uploaded) -->
+    <div class="card" id="cardIFC" style="display:none">
+      <div class="card__title">2 · IFC Metadata</div>
+      <div id="ifcMetaGrid" class="data-grid"></div>
+      <div class="card__title" style="margin-top:16px">Elements</div>
+      <div id="ifcElementsTable" class="table-wrap"></div>
+    </div>
+
+  </section>
+
+  <!-- ─────────────────────────────── RIGHT PANEL: Tabbed -->
+  <section class="panel panel--right">
+
+    <!-- Tab bar -->
+    <div class="right-tabs">
+      <button class="right-tab active" data-tab="tabDiagram">Diagram</button>
+      <button class="right-tab" data-tab="tabAnalyzer">Truss Analyzer</button>
+      <button class="right-tab" data-tab="tabIFC">IFC Viewer</button>
+      <button class="right-tab" data-tab="tabResults">Results</button>
+    </div>
+
+    <!-- ── TAB: Diagram ── -->
+    <div class="right-tab-panel active" id="tabDiagram">
+      <div class="card card--diagram" id="cardDiagram">
+        <div class="viewer-toolbar">
+          <span class="viewer-toolbar__title">2D Truss Diagram</span>
+          <div class="viewer-toolbar__actions">
+            <span id="diagramLabel" style="font-size:0.78rem;opacity:0.6;color:var(--text2)"></span>
+            <button class="btn btn--ghost btn--sm" id="btnDiagramFit">Fit</button>
+          </div>
+        </div>
+        <div id="trussdiagramWrap" class="truss-diagram-wrap">
+          <div class="viewer-placeholder" id="diagramPlaceholder">
+            <div class="viewer-placeholder__icon">&#9783;</div>
+            <div>Select a TRE file from the queue to view its diagram</div>
+          </div>
+          <svg id="trussDiagramSVG" class="truss-diagram-svg" xmlns="http://www.w3.org/2000/svg" style="display:none"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: Truss Analyzer ── -->
+    <div class="right-tab-panel" id="tabAnalyzer">
+      <div class="card analyzer-card">
+        <div class="card__title">
+          Truss Analyzer
+          <span id="analyzerFileBadge" class="badge" style="display:none"></span>
+        </div>
+
+        <!-- Analyzer sub-tabs -->
+        <div class="analyzer-tabs">
+          <button class="analyzer-tab active" data-atab="atSummary">Summary</button>
+          <button class="analyzer-tab" data-atab="atMapping">TRE → SST Mapping</button>
+
+        </div>
+
+        <!-- Sub-tab: Summary -->
+        <div class="analyzer-panel active" id="atSummary">
+          <div id="analyzerEmpty" class="empty-state" style="padding:32px 0">
+            Select a TRE file from the queue to analyze.
+          </div>
+          <div id="analyzerSummaryContent" style="display:none">
+            <!-- Stat cards row -->
+            <div class="stat-row" id="analyzerStats"></div>
+            <!-- Member table -->
+            <div class="analyzer-section-title">Members</div>
+            <div id="analyzerMembersTable" class="table-wrap"></div>
+            <!-- Bearing table -->
+            <div class="analyzer-section-title">Bearings</div>
+            <div id="analyzerBearingsTable" class="table-wrap"></div>
+          </div>
+        </div>
+
+        <!-- Sub-tab: Mapping -->
+        <div class="analyzer-panel" id="atMapping">
+          <div id="mappingEmpty" class="empty-state" style="padding:32px 0">
+            Select a TRE file from the queue to view the mapping.
+          </div>
+          <div id="mappingContent" style="display:none">
+            <div class="mapping-header">
+              <div class="mapping-header__conn" id="mappingConnType"></div>
+              <div class="mapping-header__note">Each row shows a TRE source value, the mapping rule applied, and the resulting SST input field value.</div>
+            </div>
+            <!-- Connection / Job Settings -->
+            <div class="analyzer-section-title">Connection &amp; Job Settings</div>
+            <div id="mappingJobTable" class="table-wrap"></div>
+            <!-- Carried member -->
+            <div class="analyzer-section-title" id="mappingCarriedTitle">Carried Member</div>
+            <div id="mappingCarriedTable" class="table-wrap"></div>
+            <!-- Carrying member -->
+            <div class="analyzer-section-title" id="mappingCarryingTitle">Carrying Member (Girder / Header)</div>
+            <div id="mappingCarryingTable" class="table-wrap"></div>
+            <!-- Loads -->
+            <div class="analyzer-section-title">Loads</div>
+            <div id="mappingLoadsTable" class="table-wrap"></div>
+            <!-- Hanger options -->
+            <div class="analyzer-section-title">Hanger Options</div>
+            <div id="mappingHangerTable" class="table-wrap"></div>
+          </div>
+        </div>
+
+
+
+      </div>
+    </div>
+
+    <!-- ── TAB: IFC Viewer ── -->
+    <div class="right-tab-panel" id="tabIFC">
+      <div class="card card--viewer" id="cardViewer">
+        <div class="viewer-toolbar">
+          <span class="viewer-toolbar__title">IFC 3D Viewer</span>
+          <div class="viewer-toolbar__actions">
+            <button class="btn btn--ghost btn--sm" id="btnFitView" disabled>Fit View</button>
+            <button class="btn btn--ghost btn--sm" id="btnGrid" disabled>Grid</button>
+            <button class="btn btn--ghost btn--sm" id="btnAxes" disabled>Axes</button>
+          </div>
+        </div>
+        <div id="ifcViewerContainer" class="viewer-container">
+          <div class="viewer-placeholder" id="viewerPlaceholder">
+            <div class="viewer-placeholder__icon">&#127968;</div>
+            <div>Upload an <strong>.ifc</strong> file to render the 3D model</div>
+          </div>
+        </div>
+        <div id="ifcTooltip" class="ifc-tooltip hidden">
+          <div id="ifcTooltipTitle" class="ifc-tooltip__title"></div>
+          <dl id="ifcTooltipBody" class="ifc-tooltip__body"></dl>
+        </div>
+        <div id="ifcLoading" class="ifc-loading hidden">
+          <div class="spinner"></div>
+          <span id="ifcLoadingText">Loading IFC…</span>
+        </div>
+      </div>
+      <div class="card ifc-props-panel hidden" id="ifcPropsPanel">
+        <div class="card__title">
+          Selected Element
+          <button class="btn btn--ghost btn--sm" id="btnCloseProps">&#x2715;</button>
+        </div>
+        <dl id="ifcPropsContent" class="ifc-props-list"></dl>
+      </div>
+    </div>
+
+    <!-- ── TAB: Results ── -->
+    <div class="right-tab-panel" id="tabResults">
+      <!-- Hanger Results -->
+      <div class="card" id="cardResults">
+        <div class="card__title">
+          Hanger Results
+          <span id="resultsBadge" class="badge"></span>
+        </div>
+        <div id="resultsSpinner" class="spinner-wrap" style="display:none">
+          <div class="spinner"></div>
+          <span>Submitting to SST… this may take ~30 seconds</span>
+        </div>
+        <div id="resultsTable" class="table-wrap">
+          <div class="empty-state">Submit a TRE file to SST to see hanger results.</div>
+        </div>
+      </div>
+      <!-- Batch Results -->
+      <div class="card">
+        <div class="card__title">
+          Batch Results
+          <button class="btn btn--ghost btn--sm" id="btnLoadBatch">↻ Load Last Batch</button>
+        </div>
+        <div id="batchTable" class="table-wrap">
+          <div class="empty-state">Click "Load Last Batch" to view results from the last full run.</div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════ TOAST -->
+<div id="toast" class="toast" style="display:none"></div>
+
+<!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
+<!-- IFC viewer - local bundle (no CDN required) -->
+<script src="/static/js/vendor/web-ifc-api-iife.js"></script>
+<script>
+  window.require = function(mod) {
+    if (mod === 'web-ifc') return window.WebIFC;
+    throw new Error('require: unknown module ' + mod);
+  };
+</script>
+<script src="/static/js/vendor/ifc-viewer-bundle.js"></script>
+<script src="/static/js/app.js" defer></script>
+
+</body>
+</html>

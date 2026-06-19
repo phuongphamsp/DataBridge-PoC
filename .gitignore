@@ -1,0 +1,35 @@
+# Data files (not tracked)
+DataBridge from MiTek Drawings to SST solutions/
+
+# Backup/scratch folders
+poc/src_fresh/
+poc/src_unlocked/
+poc/web/api_fresh.py
+poc/web/api_v2.py
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Output / generated
+poc/output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets / tokens
+.env
+*.env
