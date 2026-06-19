@@ -4,3 +4,4 @@ aiofiles==23.2.1
 python-multipart==0.0.9
 requests==2.32.3
 ifcopenshell==0.8.1
+playwright==1.52.0
