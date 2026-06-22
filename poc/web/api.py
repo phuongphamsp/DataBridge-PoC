@@ -115,6 +115,8 @@ app = FastAPI(title="DataBridge PoC", version="0.1.0")
 _sst_bearer_token: str = ""
 # In-memory MMDL context (last uploaded/parsed)
 _mmdl_ctx: dict | None = None
+# In-memory MMDL overlay: manual/enriched props per mark
+_mmdl_overlay: dict[str, dict] = {}
 
 app.add_middleware(
     CORSMiddleware,
@@ -141,6 +143,14 @@ class TokenPayload(BaseModel):
 
 class JoinRequest(BaseModel):
     filenames: list[str]
+
+class MMDLProps(BaseModel):
+    mark: str
+    girder_species: str | None = None
+    girder_width: str | None = None
+    girder_depth: str | None = None
+    girder_ply: int | None = None
+    king_height: float | None = None
 
 @app.post("/api/set-token")
 async def set_token(body: TokenPayload):
@@ -235,6 +245,14 @@ async def parse_tre_endpoint(file: UploadFile = File(...)):
                 mark = base if base in candidates else (alnum if alnum in candidates else "")
                 if mark:
                     tre_out["mmdl_mark"] = mark
+                    # Enrich SST input for preview if connection is truss and overlay available
+                    ov = _mmdl_overlay.get(mark)
+                    if ov and getattr(sst, "connection_type", "") == "truss":
+                        if ov.get("girder_species"): sst.girder_species = ov["girder_species"]
+                        if ov.get("girder_width"):   sst.girder_width   = ov["girder_width"]
+                        if ov.get("girder_depth"):   sst.girder_depth   = ov["girder_depth"]
+                        if ov.get("girder_ply") is not None: sst.girder_ply = int(ov["girder_ply"])  # type: ignore
+                        if ov.get("king_height") is not None: sst.girder_total_height = float(ov["king_height"])  # type: ignore
         except Exception:
             pass
         return JSONResponse({"ok": True, "tre": tre_out, "sst_input": _sst_to_dict(sst)})
@@ -364,6 +382,24 @@ async def submit_sst_api_endpoint(file: UploadFile = File(...)):
     try:
         tre = parse_tre(tmp_path)
         sst = map_tre_to_sst(tre)
+        # Enrich from MMDL overlay if available
+        try:
+            base = (file.filename or "").lower().replace(".tre", "")
+            alnum = "".join([c for c in base if c.isalnum()])
+            global _mmdl_ctx, _mmdl_overlay
+            mark = ""
+            if _mmdl_ctx and isinstance(_mmdl_ctx, dict):
+                candidates = [x.lower() for x in _mmdl_ctx.get("truss_candidates", [])]
+                mark = base if base in candidates else (alnum if alnum in candidates else "")
+            ov = _mmdl_overlay.get(mark) if mark else None
+            if ov and getattr(sst, "connection_type", "") == "truss":
+                if ov.get("girder_species"): sst.girder_species = ov["girder_species"]
+                if ov.get("girder_width"):   sst.girder_width   = ov["girder_width"]
+                if ov.get("girder_depth"):   sst.girder_depth   = ov["girder_depth"]
+                if ov.get("girder_ply") is not None: sst.girder_ply = int(ov["girder_ply"])  # type: ignore
+                if ov.get("king_height") is not None: sst.girder_total_height = float(ov["king_height"])  # type: ignore
+        except Exception:
+            pass
         result = await asyncio.get_event_loop().run_in_executor(
             None, submit_to_sst_api, sst, _sst_bearer_token
         )
@@ -513,6 +549,31 @@ async def mmdl_join(body: JoinRequest):
             "matched": bool(mark),
         })
     return JSONResponse({"ok": True, "matches": out})
+
+
+# ---------------------------------------------------------------------------
+# MMDL overlay: set/get enrichment properties for a mark
+# ---------------------------------------------------------------------------
+
+@app.post("/api/mmdl-set-props")
+async def mmdl_set_props(body: MMDLProps):
+    global _mmdl_overlay
+    mk = (body.mark or "").lower().strip()
+    if not mk:
+        raise HTTPException(400, "mark is required")
+    entry = _mmdl_overlay.get(mk, {})
+    if body.girder_species is not None: entry["girder_species"] = body.girder_species
+    if body.girder_width   is not None: entry["girder_width"]   = body.girder_width
+    if body.girder_depth   is not None: entry["girder_depth"]   = body.girder_depth
+    if body.girder_ply     is not None: entry["girder_ply"]     = int(body.girder_ply)
+    if body.king_height    is not None: entry["king_height"]    = float(body.king_height)
+    _mmdl_overlay[mk] = entry
+    return JSONResponse({"ok": True, "mark": mk, "props": entry})
+
+
+@app.get("/api/mmdl-overlay")
+async def mmdl_get_overlay():
+    return JSONResponse({"ok": True, "overlay": _mmdl_overlay})
 
 
 # ---------------------------------------------------------------------------
