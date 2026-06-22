@@ -473,6 +473,7 @@ async def mmdl_carry_graph():
 # ---------------------------------------------------------------------------
 
 def _extract_hangers_from_tre_text(text: str) -> list[dict]:
+    import re
     out: list[dict] = []
     lines = text.splitlines()
     in_section = False
@@ -483,39 +484,58 @@ def _extract_hangers_from_tre_text(text: str) -> list[dict]:
             continue
         if in_section and s.startswith('[') and 'Hanger' not in s:
             break
-        if in_section and s.startswith('LG') and 'T=' in s:
+        if in_section and s.startswith('LG') and '=' in s:
             try:
                 rhs = s.split('=', 1)[1].strip()
-                parts = [p for p in rhs.replace('\t', ' ').split(' ') if p]
-                # heuristic: first float -> x_inches; last 3 tokens -> label width heel
+                parts = re.split(r"\s+", rhs)
+                # Expected layout (from reference):
+                # idx: 0 .. 2 => xInches at [2], label at [4], width [5], heel [6]
                 x_inches = None
                 label = None
                 width = None
                 heel_h = None
-                for p in parts:
+                # Try fixed positions first
+                if len(parts) > 2:
                     try:
-                        val = float(p)
-                        if x_inches is None:
-                            x_inches = val
-                    except ValueError:
-                        pass
-                if len(parts) >= 3:
-                    try:
-                        heel_h = float(parts[-1])
+                        x_inches = float(str(parts[2]).replace('"',''))
                     except Exception:
-                        heel_h = None
+                        x_inches = None
+                if len(parts) > 4:
+                    lbl = str(parts[4]).strip()
+                    # Validate TRE-like mark
+                    m = re.search(r"(?i)\b([tj][0-9]{1,2}[a-z]{0,2})\b", lbl)
+                    if m:
+                        label = m.group(1).upper()
+                if len(parts) > 5:
                     try:
-                        width = float(parts[-2])
+                        width = float(str(parts[5]).replace('"',''))
                     except Exception:
                         width = None
-                    label = parts[-3]
-                if x_inches is not None:
-                    out.append({
-                        "label": (label or '').strip() or None,
-                        "x_inches": float(x_inches),
-                        "width": width,
-                        "heel_height": heel_h,
-                    })
+                if len(parts) > 6:
+                    try:
+                        heel_h = float(str(parts[6]).replace('"',''))
+                    except Exception:
+                        heel_h = None
+                # Fallbacks
+                if x_inches is None:
+                    mnum = re.search(r"\b(\d+(?:\.\d+)?)\b", rhs)
+                    if mnum:
+                        try:
+                            x_inches = float(mnum.group(1))
+                        except Exception:
+                            x_inches = 0.0
+                if not label:
+                    mlbl = re.search(r"(?i)\b([tj][0-9]{1,2}[a-z]{0,2})\b", rhs)
+                    if mlbl:
+                        label = mlbl.group(1).upper()
+                if x_inches is None:
+                    x_inches = 0.0
+                out.append({
+                    "label": label,
+                    "x_inches": float(x_inches),
+                    "width": width,
+                    "heel_height": heel_h,
+                })
             except Exception:
                 continue
     out.sort(key=lambda h: h.get("x_inches", 0.0))
