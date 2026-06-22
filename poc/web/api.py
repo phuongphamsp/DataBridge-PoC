@@ -804,6 +804,69 @@ async def girder_summary(
 async def detect_girders(files: list[UploadFile] = File(...)):
     if not files:
         raise HTTPException(400, "Upload one or more .tre files")
+    def _ref_is_girder_from_text(text: str) -> tuple[bool, dict]:
+        """Replicate reference logic (truss-analyzer) to identify girders from TRE text.
+        Signals:
+          - Any line startswith 'TRUSS TYPE=' and contains 'girder'
+          - 'GIRDER=YES'
+          - Inside 'TRUSS INFO' block: any line contains 'girder' (but not 'GIRDER=NO')
+          - Inside '[ADDITIONAL TRUSS INFO]' block: 'TRUSS TYPE=' with 'girder' or 'GIRDER=YES'
+          - '[Hanger Loading Info.]' section followed by a non-section content line implies presence
+        """
+        lines = text.splitlines()
+        type_has_girder = False
+        key_has_yes = False
+        info_has_girder = False
+        addl_has_girder = False
+        hanger_section_present = False
+        for i in range(len(lines)):
+            ln = (lines[i] or "").strip()
+            up = ln.upper()
+            low = ln.lower()
+            # Direct keys
+            if up.startswith('TRUSS TYPE=') and ('girder' in low):
+                type_has_girder = True
+            if up == 'GIRDER=YES':
+                key_has_yes = True
+            # Inside TRUSS INFO block
+            if ln == 'TRUSS INFO':
+                j = i + 1
+                while j < len(lines):
+                    l2 = (lines[j] or "").strip()
+                    if l2.startswith('['):
+                        break
+                    if ('girder' in l2.lower()) and ('GIRDER=NO' not in l2.upper()):
+                        info_has_girder = True
+                    j += 1
+            # Inside ADDITIONAL TRUSS INFO
+            if ln == '[ADDITIONAL TRUSS INFO]':
+                j = i + 1
+                while j < len(lines):
+                    l2 = (lines[j] or "").strip()
+                    if l2.startswith('['):
+                        break
+                    up2 = l2.upper(); low2 = l2.lower()
+                    if up2.startswith('TRUSS TYPE=') and ('girder' in low2):
+                        addl_has_girder = True
+                    if up2 == 'GIRDER=YES':
+                        addl_has_girder = True
+                    j += 1
+            # Hanger section presence heuristic
+            if ln == '[Hanger Loading Info.]':
+                # Check next meaningful line is not a new section header
+                if i + 1 < len(lines):
+                    nxt = (lines[i+1] or "").strip()
+                    if nxt and not nxt.startswith('['):
+                        hanger_section_present = True
+        is_g = type_has_girder or key_has_yes or info_has_girder or addl_has_girder or hanger_section_present
+        return is_g, {
+            'type_has_girder': type_has_girder,
+            'girder_key_yes': key_has_yes,
+            'truss_info_has_girder': info_has_girder,
+            'addl_info_has_girder': addl_has_girder,
+            'hanger_section_present': hanger_section_present,
+        }
+
     out = []
     for uf in files:
         if not (uf.filename or '').lower().endswith('.tre'):
@@ -816,7 +879,7 @@ async def detect_girders(files: list[UploadFile] = File(...)):
             lg_count = len(lg)
         except Exception:
             lg_count = 0
-        # Parse TRE for is_girder flag
+        # Parse TRE for is_girder flag (legacy)
         with tempfile.NamedTemporaryFile(suffix=".tre", delete=False) as tmp:
             tmp.write(content)
             tmp_path = Path(tmp.name)
@@ -828,8 +891,10 @@ async def detect_girders(files: list[UploadFile] = File(...)):
         finally:
             tmp_path.unlink(missing_ok=True)
         base = (uf.filename or '').rsplit('.',1)[0]
-        looks_ge = base.upper().endswith('GE')
-        eff = is_girder_flag or lg_count > 0 or looks_ge
+        # Reference logic
+        ref_is_g, ref_signals = _ref_is_girder_from_text(text)
+        # Strengthen with actual parsed LG rows if any
+        eff = ref_is_g or (lg_count > 0)
         out.append({
             "filename": uf.filename,
             "label": base,
@@ -838,7 +903,7 @@ async def detect_girders(files: list[UploadFile] = File(...)):
             "signals": {
                 "tre_is_girder": is_girder_flag,
                 "lg_count": lg_count,
-                "filename_ge": looks_ge,
+                **ref_signals,
             }
         })
     return JSONResponse({"ok": True, "girders": [g for g in out if g.get("is_girder")], "all": out})
