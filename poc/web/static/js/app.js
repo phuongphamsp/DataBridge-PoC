@@ -61,6 +61,7 @@ const mmdlStrTrusses   = document.getElementById('mmdlStrTrusses');
 const mmdlStrDesign    = document.getElementById('mmdlStrDesign');
 const mmdlCarryNote    = document.getElementById('mmdlCarryNote');
 const mmdlCarryTable   = document.getElementById('mmdlCarryTable');
+const treHangersTable  = document.getElementById('treHangersTable');
 const cardResults     = document.getElementById('cardResults');
 const resultsBadge    = document.getElementById('resultsBadge');
 const resultsSpinner  = document.getElementById('resultsSpinner');
@@ -500,6 +501,25 @@ async function handleMMDLFile(file) {
           e.confidence || '—',
         ]);
         buildTable(mmdlCarryTable, ['Girder','Carried (top 10)','Offset Samples (in)','Counts (carried/offsets)','Confidence'], rows, 'No edges inferred.');
+      }
+    } catch(_) {}
+
+    // Cross-check: TRE hanger offsets extracted from uploaded TRE files
+    try {
+      if (treQueue.length > 0 && treHangersTable) {
+        const fd = new FormData();
+        for (const q of treQueue) { if (q.file) fd.append('files', q.file, q.file.name); }
+        const tRes = await fetch(`${API}/api/tre-hangers`, { method: 'POST', body: fd });
+        const tData = await tRes.json();
+        if (tRes.ok && tData.ok) {
+          const rows = (tData.files || []).map(f => [
+            `<strong>${f.filename}</strong>`,
+            f.is_girder ? '<span class="tag tag--joist" style="background:rgba(245,158,11,.15);color:#f59e0b">Girder</span>' : '—',
+            f.hanger_count ?? 0,
+            (f.hangers || []).slice(0,8).map(h => (h.x_inches!=null ? h.x_inches.toFixed(2)+'"' : '—')).join(', '),
+          ]);
+          buildTable(treHangersTable, ['File','Type','Hangers','Offsets (in, top 8)'], rows, 'No TRE hangers found.');
+        }
       }
     } catch(_) {}
     // If we already have TRE files parsed, call join to annotate

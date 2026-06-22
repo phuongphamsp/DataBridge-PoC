@@ -469,6 +469,89 @@ async def mmdl_carry_graph():
 
 
 # ---------------------------------------------------------------------------
+# TRE hangers extractor (from Hanger Loading Info.)
+# ---------------------------------------------------------------------------
+
+def _extract_hangers_from_tre_text(text: str) -> list[dict]:
+    out: list[dict] = []
+    lines = text.splitlines()
+    in_section = False
+    for ln in lines:
+        s = ln.strip()
+        if not in_section and ("[Hanger Loading Info.]" in s or "Hanger Loading Info" in s):
+            in_section = True
+            continue
+        if in_section and s.startswith('[') and 'Hanger' not in s:
+            break
+        if in_section and s.startswith('LG') and 'T=' in s:
+            try:
+                rhs = s.split('=', 1)[1].strip()
+                parts = [p for p in rhs.replace('\t', ' ').split(' ') if p]
+                # heuristic: first float -> x_inches; last 3 tokens -> label width heel
+                x_inches = None
+                label = None
+                width = None
+                heel_h = None
+                for p in parts:
+                    try:
+                        val = float(p)
+                        if x_inches is None:
+                            x_inches = val
+                    except ValueError:
+                        pass
+                if len(parts) >= 3:
+                    try:
+                        heel_h = float(parts[-1])
+                    except Exception:
+                        heel_h = None
+                    try:
+                        width = float(parts[-2])
+                    except Exception:
+                        width = None
+                    label = parts[-3]
+                if x_inches is not None:
+                    out.append({
+                        "label": (label or '').strip() or None,
+                        "x_inches": float(x_inches),
+                        "width": width,
+                        "heel_height": heel_h,
+                    })
+            except Exception:
+                continue
+    out.sort(key=lambda h: h.get("x_inches", 0.0))
+    return out
+
+
+@app.post("/api/tre-hangers")
+async def tre_hangers(files: list[UploadFile] = File(...)):
+    results = []
+    for uf in files:
+        if not (uf.filename or '').lower().endswith('.tre'):
+            continue
+        content = await uf.read()
+        text = content.decode('utf-8', errors='replace')
+        hangers = _extract_hangers_from_tre_text(text)
+        # parse is_girder from parse_tre for better signal
+        with tempfile.NamedTemporaryFile(suffix=".tre", delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
+        try:
+            tre = parse_tre(tmp_path)
+            is_girder = bool(getattr(tre, 'is_girder', False))
+        except Exception:
+            is_girder = False
+        finally:
+            tmp_path.unlink(missing_ok=True)
+        results.append({
+            "filename": uf.filename,
+            "is_girder": is_girder,
+            "hanger_count": len(hangers),
+            "hangers": hangers,
+        })
+    return JSONResponse({"ok": True, "files": results})
+
+
+# ---------------------------------------------------------------------------
 # SST submit via direct API (fast — uses Bearer token)
 # ---------------------------------------------------------------------------
 
