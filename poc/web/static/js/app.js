@@ -414,6 +414,7 @@ function renderTREData(t) {
 
   const rows = [
     { label: 'Filename',        value: t.filename,          wide: true },
+    { label: 'MMDL Mark',       value: t.mmdl_mark || '—' },
     { label: 'Truss Type',      value: `${t.truss_type_label} (${t.truss_type_code})`, wide: true },
     { label: 'Span',            value: `${t.span_inches}"  (${(t.span_inches/12).toFixed(3)}')` },
     { label: 'Pitch',           value: pitchStr },

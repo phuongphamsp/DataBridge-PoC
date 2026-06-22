@@ -113,6 +113,8 @@ app = FastAPI(title="DataBridge PoC", version="0.1.0")
 
 # In-memory token store (single user PoC)
 _sst_bearer_token: str = ""
+# In-memory MMDL context (last uploaded/parsed)
+_mmdl_ctx: dict | None = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -162,6 +164,7 @@ def _tre_to_dict(tre: TREData) -> dict:
     tc = tre.top_chord
     return {
         "filename": tre.filename,
+        "mmdl_mark": "",  # filled later if MMDL context available
         "truss_type_label": tre.truss_type_label,
         "truss_type_code": tre.truss_type_code,
         "span_inches": round(tre.span_inches, 3),
@@ -217,7 +220,21 @@ async def parse_tre_endpoint(file: UploadFile = File(...)):
         tre = parse_tre(tmp_path)
         tre.filename = file.filename  # restore original upload name
         sst = map_tre_to_sst(tre)
-        return JSONResponse({"ok": True, "tre": _tre_to_dict(tre), "sst_input": _sst_to_dict(sst)})
+        tre_out = _tre_to_dict(tre)
+        # If MMDL context available, try to match mark
+        global _mmdl_ctx
+        try:
+            if _mmdl_ctx and isinstance(_mmdl_ctx, dict):
+                candidates = [x.lower() for x in _mmdl_ctx.get("truss_candidates", [])]
+                base = (file.filename or "").lower().replace(".tre", "")
+                # direct match or strip non-alnum
+                alnum = "".join([c for c in base if c.isalnum()])
+                mark = base if base in candidates else (alnum if alnum in candidates else "")
+                if mark:
+                    tre_out["mmdl_mark"] = mark
+        except Exception:
+            pass
+        return JSONResponse({"ok": True, "tre": tre_out, "sst_input": _sst_to_dict(sst)})
     except Exception as e:
         raise HTTPException(500, f"Parse error: {e}")
     finally:
@@ -297,6 +314,9 @@ async def parse_mmdl_endpoint(file: UploadFile = File(...)):
         tmp_path = Path(tmp.name)
     try:
         info = parse_mmdl(tmp_path)
+        # cache in memory for subsequent TRE requests
+        global _mmdl_ctx
+        _mmdl_ctx = info
         return JSONResponse({"ok": True, "filename": file.filename, **info})
     except Exception as e:
         raise HTTPException(500, f"MMDL parse error: {e}")
