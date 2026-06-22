@@ -160,8 +160,20 @@
     <div class="card" id="cardSST" style="display:none">
       <div class="card__title">3 · SST Mapped Inputs</div>
       <div id="sstInputGrid" class="data-grid"></div>
+      <div class="card__actions">
+        <button class="btn btn--ghost btn--sm" id="btnDebugPayload">Debug Payload</button>
+        <span class="hint" id="overlayNote"></span>
+      </div>
       <button id="btnSubmitSST" style="display:none"></button>
       <button class="btn btn--ghost btn--sm" id="btnSubmitSSTPlaywright" disabled style="display:none"></button>
+    </div>
+
+    <!-- Payload Debug -->
+    <div class="card" id="cardPayload" style="display:none">
+      <div class="card__title">Payload (Debug) <span class="badge" id="payloadConn"></span></div>
+      <div style="padding:8px 12px">
+        <pre id="payloadPre" style="max-height:320px;overflow:auto;background:var(--bg2);padding:12px;border-radius:6px"></pre>
+      </div>
     </div>
 
     <!-- IFC Metadata (shown when IFC uploaded) -->
