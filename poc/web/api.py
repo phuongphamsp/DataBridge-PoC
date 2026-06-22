@@ -364,11 +364,28 @@ async def parse_mmdl_endpoint(file: UploadFile = File(...)):
             import io
             data = Path(tmp_path).read_bytes()
             pk = data.find(b"PK\x03\x04")
+            carved = None
             if pk >= 0:
                 with ZipFile(io.BytesIO(data[pk:]), 'r') as zf:
-                    if 'images+PlanViewPng' in [i.filename for i in zf.infolist()]:
-                        with zf.open('images+PlanViewPng', 'r') as f:
-                            _mmdl_plan_png = f.read()
+                    # Prefer explicit PNG entries if any
+                    names = [i.filename for i in zf.infolist()]
+                    target = None
+                    for n in names:
+                        if n.lower().endswith('.png'):
+                            target = n; break
+                    if not target and 'images+PlanViewPng' in names:
+                        target = 'images+PlanViewPng'
+                    if target:
+                        with zf.open(target, 'r') as f:
+                            blob = f.read()
+                        # Carve embedded PNG if necessary
+                        sig = b"\x89PNG\r\n\x1a\n"
+                        off = blob.find(sig)
+                        if off >= 0:
+                            carved = blob[off:]
+                        else:
+                            carved = blob  # hope it's already PNG bytes
+            _mmdl_plan_png = carved
         except Exception:
             _mmdl_plan_png = None
         return JSONResponse({"ok": True, "filename": file.filename, **info, "overlay_suggested": suggested})

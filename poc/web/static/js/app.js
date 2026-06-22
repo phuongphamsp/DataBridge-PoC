@@ -417,8 +417,13 @@ async function handleMMDLFile(file) {
       const card = document.getElementById('cardMMDLPlan');
       const ping = await fetch(`${API}/api/mmdl-plan.png`, { method: 'GET' });
       if (ping.ok && imgEl && card) {
-        imgEl.src = `${API}/api/mmdl-plan.png?ts=${Date.now()}`;
+        const blob = await ping.blob();
+        const url = URL.createObjectURL(blob);
+        imgEl.onload = () => { try { URL.revokeObjectURL(url); } catch(e) {} };
+        imgEl.src = url;
         card.style.display = 'block';
+      } else if (card) {
+        card.style.display = 'none';
       }
     } catch(e) { /* ignore */ }
   } catch (err) {
