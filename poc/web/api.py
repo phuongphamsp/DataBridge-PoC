@@ -139,6 +139,9 @@ async def index():
 class TokenPayload(BaseModel):
     token: str
 
+class JoinRequest(BaseModel):
+    filenames: list[str]
+
 @app.post("/api/set-token")
 async def set_token(body: TokenPayload):
     global _sst_bearer_token
@@ -487,6 +490,29 @@ async def batch_results():
         return JSONResponse({"ok": True, "results": data})
     except Exception as e:
         raise HTTPException(500, f"Error reading results: {e}")
+
+
+# ---------------------------------------------------------------------------
+# MMDL ↔ TRE join endpoint (heuristic match marks)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/mmdl-join")
+async def mmdl_join(body: JoinRequest):
+    global _mmdl_ctx
+    if not _mmdl_ctx:
+        return JSONResponse({"ok": False, "error": "No MMDL context loaded. Upload an .mmdl first."})
+    candidates = [x.lower() for x in _mmdl_ctx.get("truss_candidates", [])]
+    out = []
+    for fn in body.filenames:
+        base = (fn or "").lower().replace(".tre", "")
+        alnum = "".join([c for c in base if c.isalnum()])
+        mark = base if base in candidates else (alnum if alnum in candidates else "")
+        out.append({
+            "filename": fn,
+            "mmdl_mark": mark,
+            "matched": bool(mark),
+        })
+    return JSONResponse({"ok": True, "matches": out})
 
 
 # ---------------------------------------------------------------------------

@@ -46,6 +46,8 @@ const resultsTable    = document.getElementById('resultsTable');
 const btnLoadBatch    = document.getElementById('btnLoadBatch');
 const batchTable      = document.getElementById('batchTable');
 const toast           = document.getElementById('toast');
+// Track MMDL context availability heuristically
+let _hasMMDL = false;
 
 // ── Toast ─────────────────────────────────────────────────
 let toastTimer = null;
@@ -367,6 +369,28 @@ async function handleMMDLFile(file) {
     console.log('truss_candidates', data.truss_candidates || []);
     console.groupEnd();
     setStatus(`MMDL parsed: ${data.entries?.length || 0} entries`, 'ok');
+    _hasMMDL = true;
+    // If we already have TRE files parsed, call join to annotate
+    try {
+      const names = treQueue.map(q => q.file?.name).filter(Boolean);
+      if (names.length) {
+        const resj = await fetch(`${API}/api/mmdl-join`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filenames: names })
+        });
+        const dj = await resj.json();
+        if (resj.ok && dj.ok) {
+          const map = new Map(dj.matches.map(m => [m.filename, m.mmdl_mark]));
+          for (const item of treQueue) {
+            const mk = map.get(item.file?.name);
+            if (mk && item.tre) item.tre.mmdl_mark = mk;
+          }
+          renderTREQueue();
+          const cur = treQueue.find(q => q.file === currentTREFile);
+          if (cur?.tre) renderTREData(cur.tre);
+        }
+      }
+    } catch(e) { /* silent */ }
   } catch (err) {
     setStatus(`MMDL network error: ${err.message}`, 'error');
   }
