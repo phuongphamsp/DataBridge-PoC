@@ -49,6 +49,9 @@ const btnSubmitSST    = document.getElementById('btnSubmitSST');
 const cardIFC         = document.getElementById('cardIFC');
 const ifcMetaGrid     = document.getElementById('ifcMetaGrid');
 const ifcElementsTable= document.getElementById('ifcElementsTable');
+const cardMMDLParsed  = document.getElementById('cardMMDLParsed');
+const mmdlDataGrid    = document.getElementById('mmdlDataGrid');
+const mmdlMarksTable  = document.getElementById('mmdlMarksTable');
 const cardResults     = document.getElementById('cardResults');
 const resultsBadge    = document.getElementById('resultsBadge');
 const resultsSpinner  = document.getElementById('resultsSpinner');
@@ -404,6 +407,21 @@ async function handleMMDLFile(file) {
     console.groupEnd();
     setStatus(`MMDL parsed: ${data.entries?.length || 0} entries`, 'ok');
     _hasMMDL = true;
+    // Render parsed card
+    try {
+      if (cardMMDLParsed && mmdlDataGrid && mmdlMarksTable) {
+        const rows = [
+          { label: 'Filename', value: data.filename || file.name, wide: true },
+          { label: 'ZIP Offset', value: typeof data.zip_offset === 'number' ? data.zip_offset : '—' },
+          { label: 'Entries', value: Array.isArray(data.entries) ? data.entries.length : '—' },
+          { label: 'Has Plan PNG', value: (data.entries||[]).some(e => (e.name||'').toLowerCase().includes('plan')) ? 'Yes' : '—' },
+        ];
+        buildGrid(mmdlDataGrid, rows);
+        const marks = (data.truss_candidates || []).map((m, i) => [String(i+1), `<code>${m}</code>`]);
+        buildTable(mmdlMarksTable, ['#', 'Mark'], marks.slice(0, 100), 'No marks found.');
+        cardMMDLParsed.style.display = 'block';
+      }
+    } catch(_) {}
     // If we already have TRE files parsed, call join to annotate
     try {
       const names = treQueue.map(q => q.file?.name).filter(Boolean);
