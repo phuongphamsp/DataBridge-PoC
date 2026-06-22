@@ -716,26 +716,35 @@ async def girder_summary(
         hanger_list = []
 
     # Index carried TRE by base label for reaction lookup
-    carried_map: dict[str, TREData] = {}
+    carried_map_exact: dict[str, TREData] = {}
+    carried_map_canon: dict[str, TREData] = {}
+    carried_map_nosuf: dict[str, TREData] = {}
+    def _strip_suffix(mark: str | None) -> str | None:
+        if not mark: return None
+        m = re.search(r"(?i)\b([tj][0-9]{1,2})", mark)
+        return m.group(1).upper() if m else None
     for fn, tre in parsed.items():
         base = (fn or '').rsplit('.',1)[0].upper()
         if base != gbase:
-            key = _canon_mark(base) or base
-            carried_map[key] = tre
+            canon = _canon_mark(base) or base
+            nosuf = _strip_suffix(canon) or canon
+            carried_map_exact[base] = tre
+            carried_map_canon[canon] = tre
+            carried_map_nosuf[nosuf] = tre
 
     # IFC presence set
     ifc_labels: set[str] = set()
     if ifc is not None:
-        if not (ifc.filename or '').lower().endswith('.ifc'):
-            raise HTTPException(400, "Only .ifc accepted for 'ifc'")
-        itxt = (await ifc.read()).decode('utf-8', errors='replace')
-        # canonicalize all IFC labels
-        raw_ifc = _ifc_extract_labels_from_text(itxt)
-        ifc_labels = set()
-        for lab in raw_ifc:
-            c = _canon_mark(lab)
-            if c:
-                ifc_labels.add(c)
+        try:
+            itxt = (await ifc.read()).decode('utf-8', errors='replace')
+            raw_ifc = _ifc_extract_labels_from_text(itxt)
+            ifc_labels = set()
+            for lab in raw_ifc:
+                c = _canon_mark(lab)
+                if c:
+                    ifc_labels.add(c)
+        except Exception:
+            ifc_labels = set()
 
     span = float(getattr(girder_tre, 'span_inches', 0.0) or 0.0)
     for h in hanger_list:
@@ -743,7 +752,16 @@ async def girder_summary(
         label = _canon_mark(raw_label) or raw_label or None
         x = float(h.get('x_inches') or 0.0)
         raw = h.get('raw')
-        carr = carried_map.get(label or '')
+        carr = None
+        if label:
+            carr = carried_map_canon.get(label)
+            if carr is None:
+                carr = carried_map_nosuf.get(_strip_suffix(label) or '')
+            if carr is None:
+                # last resort: scan exact map for startswith (e.g., T08-...)
+                for k, v in carried_map_exact.items():
+                    if k.startswith(label):
+                        carr = v; break
         # Decide side by x; left if x <= span/2
         left_side = x <= (span / 2.0) if span > 0 else True
         down = None; up = None
@@ -761,7 +779,8 @@ async def girder_summary(
             "side": "left" if left_side else "right",
             "download_lbs": down,
             "uplift_lbs": up,
-            "present_in_ifc": (label in ifc_labels) if (ifc is not None and label) else None,
+            # IFC no longer a concern; keep field for backward-compat as null
+            "present_in_ifc": None,
             "raw": raw,
         })
 

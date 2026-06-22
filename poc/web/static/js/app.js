@@ -1164,10 +1164,9 @@ window.addEventListener('DOMContentLoaded', () => {
       r.side || '—',
       r.download_lbs != null ? r.download_lbs : '—',
       r.uplift_lbs   != null ? r.uplift_lbs   : '—',
-      (r.present_in_ifc === true ? '<span class="tag tag--ok">Yes</span>' : (r.present_in_ifc === false ? 'No' : '—')),
       r.raw ? `<small style="color:var(--text3)">${r.raw}</small>` : '—',
     ]);
-    if (girderSummaryTable) buildTable(girderSummaryTable, ['Carried','Offset','Side','Rxn ↓ (lbs)','Uplift ↑ (lbs)','In IFC?','LG raw'], rows, 'No hanger rows.');
+    if (girderSummaryTable) buildTable(girderSummaryTable, ['Carried','Offset','Side','Rxn ↓ (lbs)','Uplift ↑ (lbs)','LG raw'], rows, 'No hanger rows.');
         showToast(`Girder ${data.girder?.label || label}: ${data.girder?.hanger_count ?? rows.length} connects`, 'ok');
       } catch (e) {
         showToast('Error: ' + (e?.message || e), 'error');
