@@ -504,6 +504,7 @@ async function handleMMDLFile(file) {
     try {
       const imgEl = document.getElementById('mmdlPlanImg');
       const card = document.getElementById('cardMMDLPlan');
+      // Silently ignore if plan not available (404)
       const ping = await fetch(`${API}/api/mmdl-plan.png`, { method: 'GET' });
       if (ping.ok && imgEl && card) {
         const blob = await ping.blob();
