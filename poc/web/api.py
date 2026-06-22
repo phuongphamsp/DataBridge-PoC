@@ -119,6 +119,8 @@ _mmdl_ctx: dict | None = None
 _mmdl_overlay: dict[str, dict] = {}
 # In-memory MMDL plan image bytes (PNG) if available
 _mmdl_plan_png: bytes | None = None
+# Cache last MMDL raw bytes for deeper analysis endpoints
+_mmdl_bytes: bytes | None = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -338,8 +340,9 @@ async def parse_mmdl_endpoint(file: UploadFile = File(...)):
     try:
         info = parse_mmdl(tmp_path)
         # cache in memory for subsequent TRE requests
-        global _mmdl_ctx, _mmdl_overlay, _mmdl_plan_png
+        global _mmdl_ctx, _mmdl_overlay, _mmdl_plan_png, _mmdl_bytes
         _mmdl_ctx = info
+        _mmdl_bytes = content
         # Heuristic overlay suggestion from 'trusses'
         marks = [m for m in (info.get("truss_candidates") or []) if isinstance(m, str)]
         suggested = {}
@@ -393,6 +396,76 @@ async def parse_mmdl_endpoint(file: UploadFile = File(...)):
         raise HTTPException(500, f"MMDL parse error: {e}")
     finally:
         tmp_path.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# MMDL carrying graph (heuristic from embedded blobs)
+# ---------------------------------------------------------------------------
+
+def _infer_carry_graph_from_bytes(data: bytes, candidates: list[str]) -> dict:
+    from zipfile import ZipFile
+    import io, re
+    # carve zip
+    pk = data.find(b"PK\x03\x04")
+    if pk < 0:
+        return {"edges": [], "note": "No ZIP header found"}
+    trusses = b""; design = b""
+    with ZipFile(io.BytesIO(data[pk:]), 'r') as zf:
+        for name in ["trusses", "trussdesignresults"]:
+            try:
+                with zf.open(name, 'r') as f:
+                    if name == 'trusses': trusses = f.read()
+                    else: design = f.read()
+            except KeyError:
+                pass
+    blob = trusses + b"\n" + design
+    text = blob.lower()
+    toks = [str(x).lower() for x in (candidates or []) if isinstance(x, str)]
+    # pick girder-like marks: ones ending with 'ge' or containing 'girder'
+    girders = [t for t in toks if t.endswith('ge') or 'girder' in t]
+    if not girders:
+        # fallback: choose tokens starting with 't' that have the longest window density
+        girders = toks[:3]
+    edges: list[dict] = []
+    for g in girders:
+        # find first occurrence of girder token
+        gi = text.find(g.encode('utf-8'))
+        if gi < 0:
+            continue
+        win = text[max(0, gi-2048): gi+4096]
+        # find other tokens in window
+        carried = []
+        for t in toks:
+            if t == g:
+                continue
+            if win.find(t.encode('utf-8')) >= 0:
+                carried.append(t)
+        # extract numbers that look like inch offsets (<= 600)
+        nums = [float(m.group(0)) for m in re.finditer(rb"\b\d{1,3}(?:\.\d+)?\b", win) if m]
+        offsets = [x for x in nums if 0.0 < x <= 600.0]
+        edges.append({
+            "girder": g,
+            "carried": sorted(list({*carried}))[:20],
+            "offset_samples": offsets[:10],
+            "counts": {"carried": len(set(carried)), "offset_samples": len(offsets)},
+            "confidence": "heuristic-window"
+        })
+    return {"edges": edges, "note": "Heuristic from 'trusses'/'trussdesignresults' window search"}
+
+
+@app.get("/api/mmdl-carry-graph")
+async def mmdl_carry_graph():
+    global _mmdl_bytes, _mmdl_ctx
+    if not _mmdl_bytes:
+        raise HTTPException(400, "No MMDL context loaded. Upload an .mmdl first.")
+    candidates = []
+    try:
+        if _mmdl_ctx and isinstance(_mmdl_ctx, dict):
+            candidates = _mmdl_ctx.get("truss_candidates") or []
+    except Exception:
+        candidates = []
+    graph = _infer_carry_graph_from_bytes(_mmdl_bytes, candidates)
+    return JSONResponse({"ok": True, **graph})
 
 
 # ---------------------------------------------------------------------------

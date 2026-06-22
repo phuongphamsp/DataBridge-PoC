@@ -59,6 +59,8 @@ const mmdlStrJob       = document.getElementById('mmdlStrJob');
 const mmdlStrJobProps  = document.getElementById('mmdlStrJobProps');
 const mmdlStrTrusses   = document.getElementById('mmdlStrTrusses');
 const mmdlStrDesign    = document.getElementById('mmdlStrDesign');
+const mmdlCarryNote    = document.getElementById('mmdlCarryNote');
+const mmdlCarryTable   = document.getElementById('mmdlCarryTable');
 const cardResults     = document.getElementById('cardResults');
 const resultsBadge    = document.getElementById('resultsBadge');
 const resultsSpinner  = document.getElementById('resultsSpinner');
@@ -481,6 +483,23 @@ async function handleMMDLFile(file) {
         if (mmdlStrTrusses)  mmdlStrTrusses.textContent  = fmt(data.strings?.trusses || data.trusses_strings);
         if (mmdlStrDesign)   mmdlStrDesign.textContent   = fmt(data.strings?.trussdesignresults || data.design_strings);
         cardMMDLParsed.style.display = 'block';
+      }
+    } catch(_) {}
+
+    // Fetch carrying graph (heuristic) to reveal girder↔carried relations
+    try {
+      const gRes = await fetch(`${API}/api/mmdl-carry-graph`);
+      const gData = await gRes.json();
+      if (gRes.ok && gData.ok && mmdlCarryTable) {
+        if (mmdlCarryNote) mmdlCarryNote.textContent = gData.note || 'Heuristic window-based parser.';
+        const rows = (gData.edges || []).map(e => [
+          `<code>${e.girder}</code>`,
+          (e.carried || []).slice(0,10).map(c=>`<code>${c}</code>`).join(', '),
+          (e.offset_samples || []).map(x=>x.toFixed(2)).join(', '),
+          e.counts ? (e.counts.carried + ' / ' + e.counts.offset_samples) : '—',
+          e.confidence || '—',
+        ]);
+        buildTable(mmdlCarryTable, ['Girder','Carried (top 10)','Offset Samples (in)','Counts (carried/offsets)','Confidence'], rows, 'No edges inferred.');
       }
     } catch(_) {}
     // If we already have TRE files parsed, call join to annotate
