@@ -191,37 +191,12 @@
 
     <!-- Tab bar -->
     <div class="right-tabs">
-      <button class="right-tab" data-tab="tabDiagram">Diagram</button>
       <button class="right-tab active" data-tab="tabAnalyzer">Truss Analyzer</button>
       <button class="right-tab" data-tab="tabIFC" style="display:none">IFC Viewer</button>
       <button class="right-tab" data-tab="tabResults">Results</button>
     </div>
 
-    <!-- ── TAB: Diagram ── -->
-    <div class="right-tab-panel" id="tabDiagram">
-      <div class="card card--diagram" id="cardDiagram">
-        <div class="viewer-toolbar">
-          <span class="viewer-toolbar__title">2D Truss Diagram</span>
-          <div class="viewer-toolbar__actions">
-            <select id="diagramSource" class="btn btn--ghost btn--sm">
-              <option value="tre">Source: TRE</option>
-              <option value="mmdl">Source: MMDL (Plan)</option>
-            </select>
-            <button class="btn btn--ghost btn--sm" id="btnDiagramFit">Fit</button>
-          </div>
-        </div>
-        <div id="trussdiagramWrap" class="truss-diagram-wrap">
-          <div class="viewer-placeholder" id="diagramPlaceholder">
-            <div class="viewer-placeholder__icon">&#9783;</div>
-            <div>Select a TRE file from the queue to view its diagram</div>
-          </div>
-          <svg id="trussDiagramSVG" class="truss-diagram-svg" xmlns="http://www.w3.org/2000/svg" style="display:none"></svg>
-          <div id="mmdlDiagram" style="display:none;text-align:center;padding:8px 0">
-            <img id="mmdlPlanImg2" alt="MMDL Plan" style="max-width:100%;border:1px solid var(--bg3);border-radius:6px" />
-          </div>
-        </div>
-      </div>
-    </div>
+    
 
     <!-- ── TAB: Truss Analyzer ── -->
     <div class="right-tab-panel active" id="tabAnalyzer">

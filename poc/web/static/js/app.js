@@ -1080,16 +1080,6 @@ function initRightTabs() {
       btn.classList.add('active');
       const panel = document.getElementById(btn.dataset.tab);
       if (panel) panel.classList.add('active');
-      if (btn.dataset.tab === 'tabDiagram') {
-        // When opening diagram tab, respect source switch
-        const svg  = document.getElementById('trussDiagramSVG');
-        const wrap = document.getElementById('mmdlDiagram');
-        if (diagramSource?.value === 'mmdl') {
-          if (svg) svg.style.display = 'none'; if (wrap) wrap.style.display = '';
-        } else {
-          if (svg) svg.style.display = ''; if (wrap) wrap.style.display = 'none';
-        }
-      }
     });
   });
 }
