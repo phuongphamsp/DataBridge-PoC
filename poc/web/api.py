@@ -484,7 +484,7 @@ def _extract_hangers_from_tre_text(text: str) -> list[dict]:
             continue
         if in_section and s.startswith('[') and 'Hanger' not in s:
             break
-        if in_section and s.upper().startswith('LG') and 'T=' in s:
+        if in_section and s.upper().startswith('LG') and re.search(r"(?i)\bT\s*=\s*", s):
             try:
                 rhs = s.split('=', 1)[1].strip()
                 parts = re.split(r"\s+", rhs)

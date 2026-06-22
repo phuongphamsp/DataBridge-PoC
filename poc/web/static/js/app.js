@@ -1151,7 +1151,7 @@ async function renderGirderList() {
   const listCard = document.getElementById('cardGirderList');
   const listTbl  = document.getElementById('girderList');
   if (!listCard || !listTbl) return;
-  const items = treQueue.filter(q => q?.tre?.is_girder || /ge\.tre$/i.test(q?.file?.name || ''))
+  const items = treQueue.filter(q => q?.tre?.is_girder || /\b(g|ge)\b/i.test((q?.tre?.mmdl_mark||'')) || /ge\.tre$/i.test(q?.file?.name || ''))
     .map(q => ({ label: (q?.file?.name||'').replace(/\.tre$/i,''), file: q.file }));
   if (!items.length) { listCard.style.display = 'none'; return; }
   listCard.style.display = 'block';
