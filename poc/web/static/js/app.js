@@ -35,6 +35,16 @@ const cardTRE         = document.getElementById('cardTRE');
 const treDataGrid     = document.getElementById('treDataGrid');
 const cardSST         = document.getElementById('cardSST');
 const sstInputGrid    = document.getElementById('sstInputGrid');
+// Overlay controls
+const cardOverlay     = document.getElementById('cardOverlay');
+const overlayMark     = document.getElementById('overlayMark');
+const ovSpecies       = document.getElementById('ovSpecies');
+const ovWidth         = document.getElementById('ovWidth');
+const ovDepth         = document.getElementById('ovDepth');
+const ovPly           = document.getElementById('ovPly');
+const ovKH            = document.getElementById('ovKH');
+const btnOverlayLoad  = document.getElementById('btnOverlayLoad');
+const btnOverlayApply = document.getElementById('btnOverlayApply');
 const btnSubmitSST    = document.getElementById('btnSubmitSST');
 const cardIFC         = document.getElementById('cardIFC');
 const ifcMetaGrid     = document.getElementById('ifcMetaGrid');
@@ -306,6 +316,13 @@ function showTREDetail(item) {
     btnSubmitSST.disabled = false;
     currentTREFile = item.file;
   }
+  // Show Overlay panel when have MMDL mark
+  if (item.tre?.mmdl_mark) {
+    if (cardOverlay) cardOverlay.style.display = 'block';
+    if (overlayMark) { overlayMark.style.display = ''; overlayMark.textContent = item.tre.mmdl_mark; }
+  } else {
+    if (cardOverlay) cardOverlay.style.display = 'none';
+  }
   // Load 2D diagram (Diagram tab)
   loadTrussDiagram(item.file);
 }
@@ -486,6 +503,50 @@ function renderSSTInputs(sst) {
   }
   flattenObj(sst);
   buildGrid(sstInputGrid, rows);
+}
+
+// ── Overlay helpers ─────────────────────────────────────────────────────────
+async function loadOverlayForCurrent() {
+  const mark = _analyzerItem?.tre?.mmdl_mark;
+  if (!mark) { showToast('No MMDL mark for current TRE', 'error'); return; }
+  try {
+    const res = await fetch(`${API}/api/mmdl-overlay`);
+    const data = await res.json();
+    if (!res.ok || !data.ok) return;
+    const ov = data.overlay?.[mark.toLowerCase()] || {};
+    if (ovSpecies) ovSpecies.value = ov.girder_species || '';
+    if (ovWidth)   ovWidth.value   = ov.girder_width   || '';
+    if (ovDepth)   ovDepth.value   = ov.girder_depth   || '';
+    if (ovPly)     ovPly.value     = ov.girder_ply     ?? '';
+    if (ovKH)      ovKH.value      = ov.king_height    ?? '';
+    showToast('Overlay loaded', 'ok');
+  } catch(e) {
+    showToast('Overlay load failed', 'error');
+  }
+}
+
+async function applyOverlayForCurrent() {
+  const mark = _analyzerItem?.tre?.mmdl_mark;
+  if (!mark) { showToast('No MMDL mark for current TRE', 'error'); return; }
+  const body = {
+    mark,
+    girder_species: ovSpecies?.value || null,
+    girder_width:   ovWidth?.value   || null,
+    girder_depth:   ovDepth?.value   || null,
+    girder_ply:     ovPly?.value ? Number(ovPly.value) : null,
+    king_height:    ovKH?.value  ? Number(ovKH.value)  : null,
+  };
+  try {
+    const res = await fetch(`${API}/api/mmdl-set-props`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { showToast('Overlay apply failed', 'error'); return; }
+    showToast('Overlay applied', 'ok');
+  } catch(e) {
+    showToast('Overlay apply failed', 'error');
+  }
 }
 
 // ── Submit to SST ─────────────────────────────────────────
@@ -974,6 +1035,9 @@ window.addEventListener('DOMContentLoaded', () => {
   initRightTabs();
   initAnalyzerTabs();
   checkTokenStatus();
+  // Overlay buttons
+  btnOverlayLoad?.addEventListener('click', loadOverlayForCurrent);
+  btnOverlayApply?.addEventListener('click', applyOverlayForCurrent);
 });
 
 // ═══════════════════════════════════════════════════════════
