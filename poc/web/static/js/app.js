@@ -1155,18 +1155,19 @@ window.addEventListener('DOMContentLoaded', () => {
         fd.append('girder_label', label);
         for (const q of treQueue) { if (q.file) fd.append('tre_files', q.file, q.file.name); }
         if (currentIFCFile) fd.append('ifc', currentIFCFile, currentIFCFile.name);
-        const res = await fetch(`${API}/api/girder-summary`, { method: 'POST', body: fd });
-        const data = await res.json();
-        if (!res.ok || !data.ok) { showToast('Girder summary failed', 'error'); return; }
-        const rows = (data.rows || []).map(r => [
-          `<code>${r.label || '—'}</code>`,
-          (r.offset_inches != null ? r.offset_inches.toFixed(2) + '"' : '—'),
-          r.side || '—',
-          r.download_lbs != null ? r.download_lbs : '—',
-          r.uplift_lbs   != null ? r.uplift_lbs   : '—',
-          r.present_in_ifc ? '<span class="tag tag--ok">Yes</span>' : '—',
-        ]);
-        if (girderSummaryTable) buildTable(girderSummaryTable, ['Carried','Offset (in)','Side','Rxn ↓ (lbs)','Uplift ↑ (lbs)','In IFC?'], rows, 'No hanger rows.');
+    const res = await fetch(`${API}/api/girder-summary`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok || !data.ok) { showToast('Girder summary failed', 'error'); return; }
+    const rows = (data.rows || []).map(r => [
+      `<code>${r.label || '—'}</code>`,
+      (r.offset_feet_inches || (r.offset_inches != null ? r.offset_inches.toFixed(2)+'"' : '—')),
+      r.side || '—',
+      r.download_lbs != null ? r.download_lbs : '—',
+      r.uplift_lbs   != null ? r.uplift_lbs   : '—',
+      r.present_in_ifc ? '<span class="tag tag--ok">Yes</span>' : '—',
+      r.raw ? `<small style="color:var(--text3)">${r.raw}</small>` : '—',
+    ]);
+    if (girderSummaryTable) buildTable(girderSummaryTable, ['Carried','Offset','Side','Rxn ↓ (lbs)','Uplift ↑ (lbs)','In IFC?','LG raw'], rows, 'No hanger rows.');
         showToast(`Girder ${data.girder?.label || label}: ${data.girder?.hanger_count ?? rows.length} connects`, 'ok');
       } catch (e) {
         showToast('Error: ' + (e?.message || e), 'error');

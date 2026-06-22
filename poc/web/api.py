@@ -545,6 +545,7 @@ def _extract_hangers_from_tre_text(text: str) -> list[dict]:
                         "x_inches": float(x_inches),
                         "width": width,
                         "heel_height": heel_h,
+                        "raw": s,
                     })
             except Exception:
                 continue
@@ -725,6 +726,7 @@ async def girder_summary(
     for h in hanger_list:
         label = (h.get('label') or '').strip().upper()
         x = float(h.get('x_inches') or 0.0)
+        raw = h.get('raw')
         carr = carried_map.get(label)
         # Decide side by x; left if x <= span/2
         left_side = x <= (span / 2.0) if span > 0 else True
@@ -739,10 +741,12 @@ async def girder_summary(
         hanger_rows.append({
             "label": label or None,
             "offset_inches": x,
+            "offset_feet_inches": (f"{int(x//12)}'-{round(x%12, 2)}\"" if x is not None else None),
             "side": "left" if left_side else "right",
             "download_lbs": down,
             "uplift_lbs": up,
             "present_in_ifc": (label in ifc_labels) if label else False,
+            "raw": raw,
         })
 
     return JSONResponse({
