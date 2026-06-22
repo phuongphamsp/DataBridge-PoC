@@ -52,6 +52,7 @@ const ifcElementsTable= document.getElementById('ifcElementsTable');
 const cardMMDLParsed   = document.getElementById('cardMMDLParsed');
 const mmdlDataGrid     = document.getElementById('mmdlDataGrid');
 const mmdlMarksTable   = document.getElementById('mmdlMarksTable');
+const mmdlMarksSummary = document.getElementById('mmdlMarksSummary');
 const mmdlEntriesTable = document.getElementById('mmdlEntriesTable');
 const mmdlOverlayTable = document.getElementById('mmdlOverlayTable');
 const mmdlStrJob       = document.getElementById('mmdlStrJob');
@@ -423,8 +424,40 @@ async function handleMMDLFile(file) {
           { label: 'Has Plan PNG', value: (data.entries||[]).some(e => (e.name||'').toLowerCase().includes('plan')) ? 'Yes' : '—' },
         ];
         buildGrid(mmdlDataGrid, rows);
-        const marks = (data.truss_candidates || []).map((m, i) => [String(i+1), `<code>${m}</code>`]);
-        buildTable(mmdlMarksTable, ['#', 'Mark'], marks.slice(0, 100), 'No marks found.');
+        const marksArr = Array.isArray(data.truss_candidates) ? data.truss_candidates : [];
+        // Summary: counts by family prefix
+        if (mmdlMarksSummary) {
+          const families = {};
+          for (const mk of marksArr) {
+            const m = String(mk||'').toUpperCase();
+            const fam = /^[A-Z]+/.exec(m)?.[0] || 'UNKNOWN';
+            families[fam] = (families[fam]||0) + 1;
+          }
+          const famRows = Object.entries(families).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:k, value:v}));
+          const extras = [
+            { label: 'Total Unique Marks', value: marksArr.length },
+          ];
+          buildGrid(mmdlMarksSummary, [...extras, ...famRows]);
+        }
+        // Detailed table with regex-based features
+        const marks = marksArr.map((raw, i) => {
+          const m = String(raw||'');
+          const upper = m.toUpperCase();
+          const base = upper.replace(/[-_].*$/, '');
+          const type = /^[A-Z]+/.exec(upper)?.[0] || '';
+          const num  = (upper.match(/\d+/)||[''])[0];
+          const suf  = (upper.match(/[A-Z]+$/)||[''])[0].replace(type,'');
+          const isGirder = /G|GE/.test(suf) || /GIRDER/.test(upper);
+          return [
+            String(i+1),
+            `<code>${upper}</code>`,
+            type || '—',
+            num  || '—',
+            suf  || '—',
+            isGirder ? '<span class="tag tag--joist" style="background:rgba(245,158,11,.15);color:#f59e0b">Yes</span>' : '—',
+          ];
+        });
+        buildTable(mmdlMarksTable, ['#','Mark','Type','Index','Suffix','Girder?'], marks.slice(0, 300), 'No marks found.');
         // Entries table
         if (mmdlEntriesTable) {
           const ents = (data.entries || []).map(e => [
