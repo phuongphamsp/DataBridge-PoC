@@ -97,11 +97,13 @@ _load_src_module("models/sst_input.py",           "src.models.sst_input")
 _load_src_module("mappers/sst_mapper.py",         "src.mappers.sst_mapper")
 _load_src_module("integration/sst_playwright.py", "src.integration.sst_playwright")
 _load_src_module("integration/sst_api.py",        "src.integration.sst_api")
+_load_src_module("parsers/mmdl_parser.py",        "src.parsers.mmdl_parser")
 
 from src.parsers.tre_parser import parse_tre, TREData
 from src.mappers.sst_mapper import map_tre_to_sst
 from src.integration.sst_playwright import submit_to_sst
 from src.integration.sst_api import submit_to_sst_api
+from src.parsers.mmdl_parser import parse_mmdl
 
 # ---------------------------------------------------------------------------
 # App
@@ -277,6 +279,27 @@ async def parse_ifc_endpoint(file: UploadFile = File(...)):
             })
     except Exception as e:
         raise HTTPException(500, f"IFC parse error: {e}")
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# MMDL parse endpoint (carve ZIP + heuristic strings)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/parse-mmdl")
+async def parse_mmdl_endpoint(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".mmdl"):
+        raise HTTPException(400, "Only .mmdl files accepted")
+    content = await file.read()
+    with tempfile.NamedTemporaryFile(suffix=".mmdl", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+    try:
+        info = parse_mmdl(tmp_path)
+        return JSONResponse({"ok": True, "filename": file.filename, **info})
+    except Exception as e:
+        raise HTTPException(500, f"MMDL parse error: {e}")
     finally:
         tmp_path.unlink(missing_ok=True)
 

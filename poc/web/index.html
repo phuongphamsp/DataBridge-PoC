@@ -29,28 +29,38 @@
     <!-- Upload Zone -->
     <div class="card">
       <div class="card__title">1 · Upload Files</div>
-      <div class="upload-two-col">
-        <!-- TRE upload (multi-file) -->
-        <div class="upload-slot">
-          <div class="upload-slot__label">TRE Files <span class="upload-slot__hint">engineering data + SST</span></div>
-          <div class="upload-slot__drop" id="dropTRE">
-            <span class="upload-slot__icon">&#128196;</span>
-            <span id="treFileName">No file selected</span>
+        <div class="upload-two-col">
+          <!-- TRE upload (multi-file) -->
+          <div class="upload-slot">
+            <div class="upload-slot__label">TRE Files <span class="upload-slot__hint">engineering data + SST</span></div>
+            <div class="upload-slot__drop" id="dropTRE">
+              <span class="upload-slot__icon">&#128196;</span>
+              <span id="treFileName">No file selected</span>
+            </div>
+            <input type="file" id="inputTRE" accept=".tre" multiple hidden />
+            <button class="btn btn--primary btn--full" id="btnPickTRE">Select TRE File(s)</button>
           </div>
-          <input type="file" id="inputTRE" accept=".tre" multiple hidden />
-          <button class="btn btn--primary btn--full" id="btnPickTRE">Select TRE File(s)</button>
-        </div>
-        <!-- IFC upload -->
-        <div class="upload-slot">
-          <div class="upload-slot__label">IFC File <span class="upload-slot__hint">3D viewer</span></div>
-          <div class="upload-slot__drop" id="dropIFC">
-            <span class="upload-slot__icon">&#127968;</span>
-            <span id="ifcFileName">No file selected</span>
+          <!-- IFC upload -->
+          <div class="upload-slot">
+            <div class="upload-slot__label">IFC File <span class="upload-slot__hint">3D viewer</span></div>
+            <div class="upload-slot__drop" id="dropIFC">
+              <span class="upload-slot__icon">&#127968;</span>
+              <span id="ifcFileName">No file selected</span>
+            </div>
+            <input type="file" id="inputIFC" accept=".ifc" hidden />
+            <button class="btn btn--secondary btn--full" id="btnPickIFC">Select IFC File</button>
           </div>
-          <input type="file" id="inputIFC" accept=".ifc" hidden />
-          <button class="btn btn--secondary btn--full" id="btnPickIFC">Select IFC File</button>
+          <!-- MMDL upload -->
+          <div class="upload-slot">
+            <div class="upload-slot__label">MMDL File <span class="upload-slot__hint">layout/job context</span></div>
+            <div class="upload-slot__drop" id="dropMMDL">
+              <span class="upload-slot__icon">&#128230;</span>
+              <span id="mmdlFileName">No file selected</span>
+            </div>
+            <input type="file" id="inputMMDL" accept=".mmdl" hidden />
+            <button class="btn btn--ghost btn--full" id="btnPickMMDL">Select MMDL File</button>
+          </div>
         </div>
-      </div>
       <div id="uploadStatus" class="status-bar" style="display:none"></div>
 
       <!-- SST Bearer Token -->

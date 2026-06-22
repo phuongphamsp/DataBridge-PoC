@@ -16,12 +16,16 @@ let ifcViewer      = null;
 // ── DOM refs ─────────────────────────────────────────────
 const inputTRE        = document.getElementById('inputTRE');
 const inputIFC        = document.getElementById('inputIFC');
+const inputMMDL       = document.getElementById('inputMMDL');
 const btnPickTRE      = document.getElementById('btnPickTRE');
 const btnPickIFC      = document.getElementById('btnPickIFC');
+const btnPickMMDL     = document.getElementById('btnPickMMDL');
 const dropTRE         = document.getElementById('dropTRE');
 const dropIFC         = document.getElementById('dropIFC');
+const dropMMDL        = document.getElementById('dropMMDL');
 const treFileName     = document.getElementById('treFileName');
 const ifcFileName     = document.getElementById('ifcFileName');
+const mmdlFileName    = document.getElementById('mmdlFileName');
 const cardTREQueue    = document.getElementById('cardTREQueue');
 const treQueueList    = document.getElementById('treQueueList');
 const treQueueBadge   = document.getElementById('treQueueBadge');
@@ -147,12 +151,16 @@ btnSetToken?.addEventListener('click', async () => {
 // ── File pick buttons ─────────────────────────────────────
 btnPickTRE.addEventListener('click', () => { inputTRE.click(); });
 btnPickIFC.addEventListener('click', () => { inputIFC.click(); });
+btnPickMMDL.addEventListener('click', () => { inputMMDL.click(); });
 
 inputTRE.addEventListener('change', () => {
   if (inputTRE.files.length) handleTREFiles(Array.from(inputTRE.files));
 });
 inputIFC.addEventListener('change', () => {
   if (inputIFC.files[0]) handleIFCFile(inputIFC.files[0]);
+});
+inputMMDL?.addEventListener('change', () => {
+  if (inputMMDL.files[0]) handleMMDLFile(inputMMDL.files[0]);
 });
 
 // ── Drag & drop for TRE slot ──────────────────────────────
@@ -172,6 +180,15 @@ dropIFC.addEventListener('dragleave', () => dropIFC.classList.remove('drag-over'
 dropIFC.addEventListener('drop', e => {
   e.preventDefault(); dropIFC.classList.remove('drag-over');
   if (e.dataTransfer.files[0]) handleIFCFile(e.dataTransfer.files[0]);
+});
+
+// Drag & drop for MMDL slot
+dropMMDL.addEventListener('click', () => inputMMDL.click());
+dropMMDL.addEventListener('dragover', e => { e.preventDefault(); dropMMDL.classList.add('drag-over'); });
+dropMMDL.addEventListener('dragleave', () => dropMMDL.classList.remove('drag-over'));
+dropMMDL.addEventListener('drop', e => {
+  e.preventDefault(); dropMMDL.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleMMDLFile(e.dataTransfer.files[0]);
 });
 
 // ── TRE file handler (multi-file) ────────────────────────
@@ -323,6 +340,35 @@ async function handleIFCFile(file) {
   showToast(`Loading IFC ${file.name}…`, 'info');
   cardIFC.style.display = 'none';
   await parseIFC(file);
+}
+
+// ── MMDL file handler ───────────────────────────────────────────────────────
+async function handleMMDLFile(file) {
+  mmdlFileName.textContent = file.name;
+  dropMMDL.classList.add('loaded');
+  setStatus(`Parsing MMDL ${file.name}…`, 'info');
+
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res = await fetch(`${API}/api/parse-mmdl`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setStatus(`MMDL Error: ${data.detail || data.error}`, 'error');
+      showToast('MMDL parse failed', 'error');
+      return;
+    }
+    // Show a brief toast + console dump for now (diagnostic)
+    showToast(`MMDL parsed: ${data.entries?.length || 0} entries`, 'ok');
+    console.groupCollapsed('MMDL Summary');
+    console.log('zip_offset', data.zip_offset);
+    console.table(data.entries || []);
+    console.log('suggested_marks', data.suggested_marks || []);
+    console.groupEnd();
+    setStatus(`MMDL parsed: ${data.entries?.length || 0} entries`, 'ok');
+  } catch (err) {
+    setStatus(`MMDL network error: ${err.message}`, 'error');
+  }
 }
 
 // ── Parse TRE ─────────────────────────────────────────────
