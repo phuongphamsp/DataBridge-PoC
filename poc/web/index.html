@@ -195,12 +195,23 @@
       </div>
 
     <!-- SST Mapped Inputs -->
-    <div class="card" id="cardSST" style="display:none">
-      <div class="card__title">3 · SST Mapped Inputs</div>
+      <div class="card" id="cardSST" style="display:none">
+        <div class="card__title">3 · SST Mapped Inputs</div>
       <div id="sstInputGrid" class="data-grid"></div>
       <div class="card__actions">
         <button class="btn btn--ghost btn--sm" id="btnDebugPayload">Debug Payload</button>
         <span class="hint" id="overlayNote"></span>
+      </div>
+
+      <!-- Girder Summary (TRE + optional IFC) -->
+      <div class="card" id="cardGirderSummary" style="display:none">
+        <div class="card__title">3 · Girder Summary (TRE ⇄ IFC)</div>
+        <div class="card__actions">
+          <input id="girderLabelInput" placeholder="Girder label (e.g. T10)" style="width:160px" />
+          <button class="btn btn--ghost btn--sm" id="btnBuildGirderSummary">Build</button>
+          <span class="hint">Dùng IFC (nếu có) để xác nhận presence</span>
+        </div>
+        <div id="girderSummaryTable" class="table-wrap"></div>
       </div>
       <button id="btnSubmitSST" style="display:none"></button>
       <button class="btn btn--ghost btn--sm" id="btnSubmitSSTPlaywright" disabled style="display:none"></button>

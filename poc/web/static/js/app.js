@@ -561,6 +561,8 @@ async function handleMMDLFile(file) {
   } catch (err) {
     setStatus(`MMDL network error: ${err.message}`, 'error');
   }
+  // Show girder summary card when MMDL present
+  try { if (cardGirderSummary) cardGirderSummary.style.display = 'block'; } catch(_) {}
 }
 
 // ── Parse TRE ─────────────────────────────────────────────
@@ -1185,6 +1187,35 @@ window.addEventListener('DOMContentLoaded', () => {
   // Overlay buttons
   btnOverlayLoad?.addEventListener('click', loadOverlayForCurrent);
   btnOverlayApply?.addEventListener('click', applyOverlayForCurrent);
+  // Girder Summary button
+  try {
+    btnBuildGirderSummary?.addEventListener('click', async () => {
+      const label = (girderLabelInput?.value || '').trim();
+      if (!label) { showToast('Nhập girder label (ví dụ T10)', 'error'); return; }
+      if (!treQueue.length) { showToast('Cần upload TRE trước', 'error'); return; }
+      try {
+        const fd = new FormData();
+        fd.append('girder_label', label);
+        for (const q of treQueue) { if (q.file) fd.append('tre_files', q.file, q.file.name); }
+        if (currentIFCFile) fd.append('ifc', currentIFCFile, currentIFCFile.name);
+        const res = await fetch(`${API}/api/girder-summary`, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok || !data.ok) { showToast('Girder summary failed', 'error'); return; }
+        const rows = (data.rows || []).map(r => [
+          `<code>${r.label || '—'}</code>`,
+          (r.offset_inches != null ? r.offset_inches.toFixed(2) + '"' : '—'),
+          r.side || '—',
+          r.download_lbs != null ? r.download_lbs : '—',
+          r.uplift_lbs   != null ? r.uplift_lbs   : '—',
+          r.present_in_ifc ? '<span class="tag tag--ok">Yes</span>' : '—',
+        ]);
+        if (girderSummaryTable) buildTable(girderSummaryTable, ['Carried','Offset (in)','Side','Rxn ↓ (lbs)','Uplift ↑ (lbs)','In IFC?'], rows, 'No hanger rows.');
+        showToast(`Girder ${data.girder?.label || label}: ${data.girder?.hanger_count ?? rows.length} connects`, 'ok');
+      } catch (e) {
+        showToast('Error: ' + (e?.message || e), 'error');
+      }
+    });
+  } catch(_) {}
 });
 
 // ═══════════════════════════════════════════════════════════
