@@ -325,6 +325,20 @@ function showTREDetail(item) {
   }
   // Load 2D diagram (Diagram tab)
   loadTrussDiagram(item.file);
+  // If MMDL source selected, try load plan image as diagram
+  if (typeof diagramSource !== 'undefined' && diagramSource?.value === 'mmdl') {
+    try {
+      const img = document.getElementById('mmdlPlanImg2');
+      const wrap = document.getElementById('mmdlDiagram');
+      const svg  = document.getElementById('trussDiagramSVG');
+      const ping = await fetch(`${API}/api/mmdl-plan.png`, { method: 'GET' });
+      if (ping.ok && img && wrap && svg) {
+        const blob = await ping.blob(); const url = URL.createObjectURL(blob);
+        img.onload = () => { try { URL.revokeObjectURL(url); } catch(e) {} };
+        img.src = url; svg.style.display = 'none'; wrap.style.display = '';
+      }
+    } catch(e) { /* ignore */ }
+  }
 }
 
 async function parseTREQueued(file) {
@@ -1066,6 +1080,16 @@ function initRightTabs() {
       btn.classList.add('active');
       const panel = document.getElementById(btn.dataset.tab);
       if (panel) panel.classList.add('active');
+      if (btn.dataset.tab === 'tabDiagram') {
+        // When opening diagram tab, respect source switch
+        const svg  = document.getElementById('trussDiagramSVG');
+        const wrap = document.getElementById('mmdlDiagram');
+        if (diagramSource?.value === 'mmdl') {
+          if (svg) svg.style.display = 'none'; if (wrap) wrap.style.display = '';
+        } else {
+          if (svg) svg.style.display = ''; if (wrap) wrap.style.display = 'none';
+        }
+      }
     });
   });
 }
@@ -1536,6 +1560,7 @@ const cardDiagram    = document.getElementById('cardDiagram');
 const trussDiagramSVG= document.getElementById('trussDiagramSVG');
 const diagramLabel   = document.getElementById('diagramLabel');
 const btnDiagramFit  = document.getElementById('btnDiagramFit');
+const diagramSource  = document.getElementById('diagramSource');
 
 // Pan/zoom state
 let _diagramGeo  = null;   // last loaded geometry response
