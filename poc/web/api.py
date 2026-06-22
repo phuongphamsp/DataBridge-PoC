@@ -20,7 +20,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -117,6 +117,8 @@ _sst_bearer_token: str = ""
 _mmdl_ctx: dict | None = None
 # In-memory MMDL overlay: manual/enriched props per mark
 _mmdl_overlay: dict[str, dict] = {}
+# In-memory MMDL plan image bytes (PNG) if available
+_mmdl_plan_png: bytes | None = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -336,7 +338,7 @@ async def parse_mmdl_endpoint(file: UploadFile = File(...)):
     try:
         info = parse_mmdl(tmp_path)
         # cache in memory for subsequent TRE requests
-        global _mmdl_ctx, _mmdl_overlay
+        global _mmdl_ctx, _mmdl_overlay, _mmdl_plan_png
         _mmdl_ctx = info
         # Heuristic overlay suggestion from 'trusses'
         marks = [m for m in (info.get("truss_candidates") or []) if isinstance(m, str)]
@@ -356,6 +358,19 @@ async def parse_mmdl_endpoint(file: UploadFile = File(...)):
                     _mmdl_overlay[low] = cur
         except Exception:
             pass
+        # Try extract plan view image
+        try:
+            from zipfile import ZipFile
+            import io
+            data = Path(tmp_path).read_bytes()
+            pk = data.find(b"PK\x03\x04")
+            if pk >= 0:
+                with ZipFile(io.BytesIO(data[pk:]), 'r') as zf:
+                    if 'images+PlanViewPng' in [i.filename for i in zf.infolist()]:
+                        with zf.open('images+PlanViewPng', 'r') as f:
+                            _mmdl_plan_png = f.read()
+        except Exception:
+            _mmdl_plan_png = None
         return JSONResponse({"ok": True, "filename": file.filename, **info, "overlay_suggested": suggested})
     except Exception as e:
         raise HTTPException(500, f"MMDL parse error: {e}")
@@ -603,6 +618,14 @@ async def mmdl_set_props(body: MMDLProps):
 @app.get("/api/mmdl-overlay")
 async def mmdl_get_overlay():
     return JSONResponse({"ok": True, "overlay": _mmdl_overlay})
+
+
+@app.get("/api/mmdl-plan.png")
+async def mmdl_plan_png():
+    global _mmdl_plan_png
+    if not _mmdl_plan_png:
+        raise HTTPException(404, "No plan image available. Upload .mmdl first.")
+    return Response(content=_mmdl_plan_png, media_type="image/png")
 
 
 # ---------------------------------------------------------------------------

@@ -411,6 +411,16 @@ async function handleMMDLFile(file) {
         }
       }
     } catch(e) { /* silent */ }
+    // Try to load plan image
+    try {
+      const imgEl = document.getElementById('mmdlPlanImg');
+      const card = document.getElementById('cardMMDLPlan');
+      const ping = await fetch(`${API}/api/mmdl-plan.png`, { method: 'GET' });
+      if (ping.ok && imgEl && card) {
+        imgEl.src = `${API}/api/mmdl-plan.png?ts=${Date.now()}`;
+        card.style.display = 'block';
+      }
+    } catch(e) { /* ignore */ }
   } catch (err) {
     setStatus(`MMDL network error: ${err.message}`, 'error');
   }
