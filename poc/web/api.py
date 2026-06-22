@@ -662,6 +662,14 @@ async def girder_summary(
     if not tre_files:
         raise HTTPException(400, "Provide tre_files")
 
+    # Helper: canonicalize mark token (e.g., 'T08', 'T09A')
+    import re
+    def _canon_mark(s: str | None) -> str | None:
+        if not s:
+            return None
+        m = re.search(r"(?i)\b([tj][0-9]{1,2}[a-z]{0,2})\b", s)
+        return m.group(1).upper() if m else None
+
     # Parse all TREs; identify girder TRE
     parsed: dict[str, TREData] = {}
     girder_tre: TREData | None = None
@@ -712,7 +720,8 @@ async def girder_summary(
     for fn, tre in parsed.items():
         base = (fn or '').rsplit('.',1)[0].upper()
         if base != gbase:
-            carried_map[base] = tre
+            key = _canon_mark(base) or base
+            carried_map[key] = tre
 
     # IFC presence set
     ifc_labels: set[str] = set()
@@ -720,14 +729,21 @@ async def girder_summary(
         if not (ifc.filename or '').lower().endswith('.ifc'):
             raise HTTPException(400, "Only .ifc accepted for 'ifc'")
         itxt = (await ifc.read()).decode('utf-8', errors='replace')
-        ifc_labels = _ifc_extract_labels_from_text(itxt)
+        # canonicalize all IFC labels
+        raw_ifc = _ifc_extract_labels_from_text(itxt)
+        ifc_labels = set()
+        for lab in raw_ifc:
+            c = _canon_mark(lab)
+            if c:
+                ifc_labels.add(c)
 
     span = float(getattr(girder_tre, 'span_inches', 0.0) or 0.0)
     for h in hanger_list:
-        label = (h.get('label') or '').strip().upper()
+        raw_label = (h.get('label') or '').strip().upper()
+        label = _canon_mark(raw_label) or raw_label or None
         x = float(h.get('x_inches') or 0.0)
         raw = h.get('raw')
-        carr = carried_map.get(label)
+        carr = carried_map.get(label or '')
         # Decide side by x; left if x <= span/2
         left_side = x <= (span / 2.0) if span > 0 else True
         down = None; up = None
@@ -745,7 +761,7 @@ async def girder_summary(
             "side": "left" if left_side else "right",
             "download_lbs": down,
             "uplift_lbs": up,
-            "present_in_ifc": (label in ifc_labels) if label else False,
+            "present_in_ifc": (label in ifc_labels) if (ifc is not None and label) else None,
             "raw": raw,
         })
 
