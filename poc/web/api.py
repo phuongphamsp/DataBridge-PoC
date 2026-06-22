@@ -484,7 +484,7 @@ def _extract_hangers_from_tre_text(text: str) -> list[dict]:
             continue
         if in_section and s.startswith('[') and 'Hanger' not in s:
             break
-        if in_section and s.startswith('LG') and '=' in s:
+        if in_section and s.upper().startswith('LG') and 'T=' in s:
             try:
                 rhs = s.split('=', 1)[1].strip()
                 parts = re.split(r"\s+", rhs)
@@ -494,18 +494,16 @@ def _extract_hangers_from_tre_text(text: str) -> list[dict]:
                 label = None
                 width = None
                 heel_h = None
+                # Extract label from T=...
+                mlabel = re.search(r"(?i)T\s*=\s*([A-Za-z0-9_\-\.]+)", rhs)
+                if mlabel:
+                    label = mlabel.group(1).upper()
                 # Try fixed positions first
                 if len(parts) > 2:
                     try:
                         x_inches = float(str(parts[2]).replace('"',''))
                     except Exception:
                         x_inches = None
-                if len(parts) > 4:
-                    lbl = str(parts[4]).strip()
-                    # Validate TRE-like mark
-                    m = re.search(r"(?i)\b([tj][0-9]{1,2}[a-z]{0,2})\b", lbl)
-                    if m:
-                        label = m.group(1).upper()
                 if len(parts) > 5:
                     try:
                         width = float(str(parts[5]).replace('"',''))
@@ -518,32 +516,36 @@ def _extract_hangers_from_tre_text(text: str) -> list[dict]:
                         heel_h = None
                 # Fallbacks
                 if x_inches is None:
-                    # Feet-inches pattern e.g., 8'-0.75"
-                    mf = re.search(r"(\d+)\'\s*[-–]?\s*(\d+(?:\.\d+)?)?\"", rhs)
-                    if mf:
-                        ft = float(mf.group(1) or 0)
-                        inc = float(mf.group(2) or 0)
-                        x_inches = ft * 12.0 + inc
+                    # 1) Parentheses inches e.g. (24.75")
+                    mp = re.search(r"\((\d+(?:\.\d+)?)\"\)", rhs)
+                    if mp:
+                        x_inches = float(mp.group(1))
                     else:
-                        # Any plain number fallback
-                        mnum = re.search(r"(\d+(?:\.\d+)?)", rhs)
-                        if mnum:
-                            try:
-                                x_inches = float(mnum.group(1))
-                            except Exception:
-                                x_inches = 0.0
+                        # 2) Feet-inches pattern e.g., 8'-0.75"
+                        mf = re.search(r"(\d+)\'\s*[-–]?\s*(\d+(?:\.\d+)?)?\"", rhs)
+                        if mf:
+                            ft = float(mf.group(1) or 0)
+                            inc = float(mf.group(2) or 0)
+                            x_inches = ft * 12.0 + inc
+                        else:
+                            # 3) Any plain number fallback
+                            mnum = re.search(r"(\d+(?:\.\d+)?)", rhs)
+                            if mnum:
+                                try:
+                                    x_inches = float(mnum.group(1))
+                                except Exception:
+                                    x_inches = None
                 if not label:
-                    mlbl = re.search(r"(?i)([tj][0-9]{1,2}[a-z]{0,2})", rhs)
-                    if mlbl:
-                        label = mlbl.group(1).upper()
-                if x_inches is None:
-                    x_inches = 0.0
-                out.append({
-                    "label": label,
-                    "x_inches": float(x_inches),
-                    "width": width,
-                    "heel_height": heel_h,
-                })
+                    mlbl2 = re.search(r"(?i)([tj][0-9]{1,2}[a-z]{0,2})", rhs)
+                    if mlbl2:
+                        label = mlbl2.group(1).upper()
+                if label and x_inches is not None:
+                    out.append({
+                        "label": label,
+                        "x_inches": float(x_inches),
+                        "width": width,
+                        "heel_height": heel_h,
+                    })
             except Exception:
                 continue
     out.sort(key=lambda h: h.get("x_inches", 0.0))
