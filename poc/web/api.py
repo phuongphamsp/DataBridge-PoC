@@ -518,14 +518,22 @@ def _extract_hangers_from_tre_text(text: str) -> list[dict]:
                         heel_h = None
                 # Fallbacks
                 if x_inches is None:
-                    mnum = re.search(r"\b(\d+(?:\.\d+)?)\b", rhs)
-                    if mnum:
-                        try:
-                            x_inches = float(mnum.group(1))
-                        except Exception:
-                            x_inches = 0.0
+                    # Feet-inches pattern e.g., 8'-0.75"
+                    mf = re.search(r"(\d+)\'\s*[-–]?\s*(\d+(?:\.\d+)?)?\"", rhs)
+                    if mf:
+                        ft = float(mf.group(1) or 0)
+                        inc = float(mf.group(2) or 0)
+                        x_inches = ft * 12.0 + inc
+                    else:
+                        # Any plain number fallback
+                        mnum = re.search(r"(\d+(?:\.\d+)?)", rhs)
+                        if mnum:
+                            try:
+                                x_inches = float(mnum.group(1))
+                            except Exception:
+                                x_inches = 0.0
                 if not label:
-                    mlbl = re.search(r"(?i)\b([tj][0-9]{1,2}[a-z]{0,2})\b", rhs)
+                    mlbl = re.search(r"(?i)([tj][0-9]{1,2}[a-z]{0,2})", rhs)
                     if mlbl:
                         label = mlbl.group(1).upper()
                 if x_inches is None:
