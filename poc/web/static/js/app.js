@@ -67,6 +67,9 @@ const cardResults     = document.getElementById('cardResults');
 const resultsBadge    = document.getElementById('resultsBadge');
 const resultsSpinner  = document.getElementById('resultsSpinner');
 const resultsTable    = document.getElementById('resultsTable');
+// Girder Summary card/table
+const cardGirderSummary = document.getElementById('cardGirderSummary');
+const girderSummaryTable = document.getElementById('girderSummaryTable');
 const btnLoadBatch    = document.getElementById('btnLoadBatch');
 const batchTable      = document.getElementById('batchTable');
 const toast           = document.getElementById('toast');
@@ -1171,11 +1174,20 @@ async function renderGirderList() {
     }
     if (!items.length) { listCard.style.display = 'none'; return; }
     listCard.style.display = 'block';
-    const rows = items.map(it => [
-      `<strong>${it.label}</strong>`,
-      `${it.lg_count} connects`,
-      `<button class=\"btn btn--ghost btn--sm\" onclick=\"buildGirderSummary('${it.label.replace(/'/g, "\\'")}')\">Open</button>`
-    ]);
+    const rows = items.map(it => {
+      const safeLabel = it.label.replace(/'/g, "\\'");
+      const uid = `btnOpen_${safeLabel}_${Math.random().toString(36).slice(2,7)}`;
+      // Render a real button without inline onclick to avoid escaping issues
+      setTimeout(() => {
+        const el = document.getElementById(uid);
+        if (el) el.onclick = () => buildGirderSummary(it.label);
+      }, 0);
+      return [
+        `<strong>${it.label}</strong>`,
+        `${it.lg_count} connects`,
+        `<button id="${uid}" class=\"btn btn--ghost btn--sm\">Open</button>`
+      ];
+    });
     buildTable(listTbl, ['Girder','LG Count','Actions'], rows, 'No girders found.');
   } catch(e) {
     // Fallback entirely local
