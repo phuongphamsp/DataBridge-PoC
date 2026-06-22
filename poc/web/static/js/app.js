@@ -308,7 +308,7 @@ function selectTREItem(idx) {
   _updateSubmitButtons();
 }
 
-function showTREDetail(item) {
+async function showTREDetail(item) {
   if (item.tre) {
     renderTREData(item.tre);
     cardTRE.style.display = 'block';
