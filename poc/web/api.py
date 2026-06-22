@@ -619,6 +619,115 @@ async def ifc_carry_count(
 
 
 # ---------------------------------------------------------------------------
+# Girder Summary: combine TRE girder hangers + carried TRE reaction/uplift, optional IFC presence
+# ---------------------------------------------------------------------------
+
+@app.post("/api/girder-summary")
+async def girder_summary(
+    girder_label: str = Form(...),
+    tre_files: list[UploadFile] = File(...),
+    ifc: UploadFile | None = File(None),
+):
+    if not tre_files:
+        raise HTTPException(400, "Provide tre_files")
+
+    # Parse all TREs; identify girder TRE
+    parsed: dict[str, TREData] = {}
+    girder_tre: TREData | None = None
+    girder_text: str | None = None
+    for uf in tre_files:
+        content = await uf.read()
+        with tempfile.NamedTemporaryFile(suffix=".tre", delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
+        try:
+            tre = parse_tre(tmp_path)
+            tre.filename = uf.filename or tre.filename
+            parsed[tre.filename] = tre
+            base = (tre.filename or '').rsplit('.',1)[0].upper()
+            if base == girder_label.upper():
+                girder_tre = tre
+                try:
+                    girder_text = content.decode('utf-8', errors='replace')
+                except Exception:
+                    girder_text = None
+            elif tre.is_girder and girder_tre is None:
+                # fallback if exact not found yet
+                girder_tre = tre
+                try:
+                    girder_text = content.decode('utf-8', errors='replace')
+                except Exception:
+                    girder_text = None
+        except Exception:
+            continue
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    if not girder_tre:
+        raise HTTPException(400, f"Girder TRE not found for label '{girder_label}'")
+
+    # Extract hangers from cached girder_text
+    hanger_rows: list[dict] = []
+    gbase = (girder_tre.filename or '').rsplit('.',1)[0].upper()
+    hanger_list: list[dict] = []
+    try:
+        if girder_text:
+            hanger_list = _extract_hangers_from_tre_text(girder_text)
+    except Exception:
+        hanger_list = []
+
+    # Index carried TRE by base label for reaction lookup
+    carried_map: dict[str, TREData] = {}
+    for fn, tre in parsed.items():
+        base = (fn or '').rsplit('.',1)[0].upper()
+        if base != gbase:
+            carried_map[base] = tre
+
+    # IFC presence set
+    ifc_labels: set[str] = set()
+    if ifc is not None:
+        if not (ifc.filename or '').lower().endswith('.ifc'):
+            raise HTTPException(400, "Only .ifc accepted for 'ifc'")
+        itxt = (await ifc.read()).decode('utf-8', errors='replace')
+        ifc_labels = _ifc_extract_labels_from_text(itxt)
+
+    span = float(getattr(girder_tre, 'span_inches', 0.0) or 0.0)
+    for h in hanger_list:
+        label = (h.get('label') or '').strip().upper()
+        x = float(h.get('x_inches') or 0.0)
+        carr = carried_map.get(label)
+        # Decide side by x; left if x <= span/2
+        left_side = x <= (span / 2.0) if span > 0 else True
+        down = None; up = None
+        if carr is not None:
+            if left_side:
+                down = getattr(carr, 'reaction1_lbs', None)
+                up   = getattr(carr, 'uplift1_lbs', None)
+            else:
+                down = getattr(carr, 'reaction2_lbs', None)
+                up   = getattr(carr, 'uplift2_lbs', None)
+        hanger_rows.append({
+            "label": label or None,
+            "offset_inches": x,
+            "side": "left" if left_side else "right",
+            "download_lbs": down,
+            "uplift_lbs": up,
+            "present_in_ifc": (label in ifc_labels) if label else False,
+        })
+
+    return JSONResponse({
+        "ok": True,
+        "girder": {
+            "label": gbase,
+            "filename": girder_tre.filename,
+            "span_inches": span,
+            "hanger_count": len(hanger_list),
+        },
+        "rows": hanger_rows,
+    })
+
+
+# ---------------------------------------------------------------------------
 # SST submit via direct API (fast — uses Bearer token)
 # ---------------------------------------------------------------------------
 

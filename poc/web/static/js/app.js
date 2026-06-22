@@ -49,19 +49,20 @@ const btnSubmitSST    = document.getElementById('btnSubmitSST');
 const cardIFC         = document.getElementById('cardIFC');
 const ifcMetaGrid     = document.getElementById('ifcMetaGrid');
 const ifcElementsTable= document.getElementById('ifcElementsTable');
-const cardMMDLParsed   = document.getElementById('cardMMDLParsed');
-const mmdlDataGrid     = document.getElementById('mmdlDataGrid');
-const mmdlMarksTable   = document.getElementById('mmdlMarksTable');
-const mmdlMarksSummary = document.getElementById('mmdlMarksSummary');
-const mmdlEntriesTable = document.getElementById('mmdlEntriesTable');
-const mmdlOverlayTable = document.getElementById('mmdlOverlayTable');
-const mmdlStrJob       = document.getElementById('mmdlStrJob');
-const mmdlStrJobProps  = document.getElementById('mmdlStrJobProps');
-const mmdlStrTrusses   = document.getElementById('mmdlStrTrusses');
-const mmdlStrDesign    = document.getElementById('mmdlStrDesign');
-const mmdlCarryNote    = document.getElementById('mmdlCarryNote');
-const mmdlCarryTable   = document.getElementById('mmdlCarryTable');
-const treHangersTable  = document.getElementById('treHangersTable');
+// Removed MMDL analysis cards per request
+const cardMMDLParsed   = null;
+const mmdlDataGrid     = null;
+const mmdlMarksTable   = null;
+const mmdlMarksSummary = null;
+const mmdlEntriesTable = null;
+const mmdlOverlayTable = null;
+const mmdlStrJob       = null;
+const mmdlStrJobProps  = null;
+const mmdlStrTrusses   = null;
+const mmdlStrDesign    = null;
+const mmdlCarryNote    = null;
+const mmdlCarryTable   = null;
+const treHangersTable  = null;
 const cardResults     = document.getElementById('cardResults');
 const resultsBadge    = document.getElementById('resultsBadge');
 const resultsSpinner  = document.getElementById('resultsSpinner');
@@ -462,27 +463,7 @@ async function handleMMDLFile(file) {
         });
         buildTable(mmdlMarksTable, ['#','Mark','Type','Index','Suffix','Girder?'], marks.slice(0, 300), 'No marks found.');
         // Entries table
-        if (mmdlEntriesTable) {
-          const ents = (data.entries || []).map(e => [
-            `<code>${e.name || e.filename || '—'}</code>`,
-            e.size != null ? e.size : (e.length != null ? e.length : '—'),
-          ]);
-          buildTable(mmdlEntriesTable, ['Name', 'Size (bytes)'], ents, 'No entries.');
-        }
-        // Overlay suggestions table (if provided by backend)
-        if (mmdlOverlayTable) {
-          const ov = data.overlay_suggested || {};
-          const rowsOv = Object.keys(ov).map(k => [
-            `<code>${k}</code>`, ov[k]?.girder_width || '—', ov[k]?.girder_depth || '—', ov[k]?.girder_ply ?? '—', ov[k]?.king_height ?? '—'
-          ]);
-          buildTable(mmdlOverlayTable, ['Mark', 'Width', 'Depth', 'Ply', 'King Height'], rowsOv, 'No suggestions.');
-        }
-        // String samples
-        const fmt = (arr) => (Array.isArray(arr) ? arr.slice(0, 30).join('\n') : '');
-        if (mmdlStrJob)      mmdlStrJob.textContent      = fmt(data.strings?.job || data.job_strings);
-        if (mmdlStrJobProps) mmdlStrJobProps.textContent = fmt(data.strings?.jobProps || data.jobprops_strings);
-        if (mmdlStrTrusses)  mmdlStrTrusses.textContent  = fmt(data.strings?.trusses || data.trusses_strings);
-        if (mmdlStrDesign)   mmdlStrDesign.textContent   = fmt(data.strings?.trussdesignresults || data.design_strings);
+        // Removed extra MMDL analysis sections per request
         cardMMDLParsed.style.display = 'block';
       }
     } catch(_) {}
@@ -491,36 +472,12 @@ async function handleMMDLFile(file) {
     try {
       const gRes = await fetch(`${API}/api/mmdl-carry-graph`);
       const gData = await gRes.json();
-      if (gRes.ok && gData.ok && mmdlCarryTable) {
-        if (mmdlCarryNote) mmdlCarryNote.textContent = gData.note || 'Heuristic window-based parser.';
-        const rows = (gData.edges || []).map(e => [
-          `<code>${e.girder}</code>`,
-          (e.carried || []).slice(0,10).map(c=>`<code>${c}</code>`).join(', '),
-          (e.offset_samples || []).map(x=>x.toFixed(2)).join(', '),
-          e.counts ? (e.counts.carried + ' / ' + e.counts.offset_samples) : '—',
-          e.confidence || '—',
-        ]);
-        buildTable(mmdlCarryTable, ['Girder','Carried (top 10)','Offset Samples (in)','Counts (carried/offsets)','Confidence'], rows, 'No edges inferred.');
-      }
+      // Removed carrying graph rendering per request
     } catch(_) {}
 
     // Cross-check: TRE hanger offsets extracted from uploaded TRE files
     try {
-      if (treQueue.length > 0 && treHangersTable) {
-        const fd = new FormData();
-        for (const q of treQueue) { if (q.file) fd.append('files', q.file, q.file.name); }
-        const tRes = await fetch(`${API}/api/tre-hangers`, { method: 'POST', body: fd });
-        const tData = await tRes.json();
-        if (tRes.ok && tData.ok) {
-          const rows = (tData.files || []).map(f => [
-            `<strong>${f.filename}</strong>`,
-            f.is_girder ? '<span class="tag tag--joist" style="background:rgba(245,158,11,.15);color:#f59e0b">Girder</span>' : '—',
-            f.hanger_count ?? 0,
-            (f.hangers || []).slice(0,8).map(h => (h.x_inches!=null ? h.x_inches.toFixed(2)+'"' : '—')).join(', '),
-          ]);
-          buildTable(treHangersTable, ['File','Type','Hangers','Offsets (in, top 8)'], rows, 'No TRE hangers found.');
-        }
-      }
+      // Removed TRE hanger cross-check table per request
     } catch(_) {}
     // If we already have TRE files parsed, call join to annotate
     try {
