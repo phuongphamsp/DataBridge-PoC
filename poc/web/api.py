@@ -103,7 +103,7 @@ from src.parsers.tre_parser import parse_tre, TREData
 from src.mappers.sst_mapper import map_tre_to_sst
 from src.integration.sst_playwright import submit_to_sst
 from src.integration.sst_api import submit_to_sst_api
-from src.parsers.mmdl_parser import parse_mmdl
+from src.parsers.mmdl_parser import parse_mmdl, suggest_overlay_from_trusses
 
 # ---------------------------------------------------------------------------
 # App
@@ -336,9 +336,27 @@ async def parse_mmdl_endpoint(file: UploadFile = File(...)):
     try:
         info = parse_mmdl(tmp_path)
         # cache in memory for subsequent TRE requests
-        global _mmdl_ctx
+        global _mmdl_ctx, _mmdl_overlay
         _mmdl_ctx = info
-        return JSONResponse({"ok": True, "filename": file.filename, **info})
+        # Heuristic overlay suggestion from 'trusses'
+        marks = [m for m in (info.get("truss_candidates") or []) if isinstance(m, str)]
+        suggested = {}
+        try:
+            if marks:
+                suggested = suggest_overlay_from_trusses(tmp_path, marks)
+                # Merge into overlay without overwriting existing keys
+                for mk, props in suggested.items():
+                    low = (mk or "").lower()
+                    if not low:
+                        continue
+                    cur = _mmdl_overlay.get(low, {})
+                    for k, v in props.items():
+                        if k not in cur:
+                            cur[k] = v
+                    _mmdl_overlay[low] = cur
+        except Exception:
+            pass
+        return JSONResponse({"ok": True, "filename": file.filename, **info, "overlay_suggested": suggested})
     except Exception as e:
         raise HTTPException(500, f"MMDL parse error: {e}")
     finally:
@@ -549,6 +567,17 @@ async def mmdl_join(body: JoinRequest):
             "matched": bool(mark),
         })
     return JSONResponse({"ok": True, "matches": out})
+
+
+@app.post("/api/mmdl-suggest-overlay")
+async def mmdl_suggest_overlay(body: JoinRequest):
+    """Suggest girder props/king_height for matched marks using heuristic parser."""
+    global _mmdl_ctx
+    if not _mmdl_ctx:
+        return JSONResponse({"ok": False, "error": "No MMDL context loaded."})
+    # Try to locate the last uploaded MMDL file path is not retained; accept none → need re-upload to refresh ctx
+    # We will rebuild a BytesIO from cached context is not available; fall back to simple error.
+    return JSONResponse({"ok": False, "error": "Heuristic suggestion requires original .mmdl path; not persisted in ctx."})
 
 
 # ---------------------------------------------------------------------------

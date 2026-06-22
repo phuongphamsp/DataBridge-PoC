@@ -367,6 +367,9 @@ async function handleMMDLFile(file) {
     console.table(data.entries || []);
     console.log('suggested_marks', data.suggested_marks || []);
     console.log('truss_candidates', data.truss_candidates || []);
+    if (data.overlay_suggested) {
+      console.table(Object.entries(data.overlay_suggested).map(([k,v]) => ({ mark:k, ...v })));
+    }
     console.groupEnd();
     setStatus(`MMDL parsed: ${data.entries?.length || 0} entries`, 'ok');
     _hasMMDL = true;
