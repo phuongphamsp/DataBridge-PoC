@@ -165,13 +165,16 @@
         <span class="hint" id="overlayNote"></span>
       </div>
 
-      <!-- Girder Summary (TRE + optional IFC) -->
+      <!-- Girder List (from TRE queue) -->
+      <div class="card" id="cardGirderList" style="display:none">
+        <div class="card__title">3 · Girders</div>
+        <div id="girderList" class="table-wrap"></div>
+      </div>
+
+      <!-- Girder Summary (TRE) -->
       <div class="card" id="cardGirderSummary" style="display:none">
         <div class="card__title">3 · Girder Summary (TRE)</div>
-        <div class="card__actions">
-          <input id="girderLabelInput" placeholder="Girder label (e.g. T10)" style="width:160px" />
-          <button class="btn btn--ghost btn--sm" id="btnBuildGirderSummary">Build</button>
-        </div>
+        <div class="card__actions" id="girderSummaryActions"></div>
         <div id="girderSummaryTable" class="table-wrap"></div>
       </div>
       <button id="btnSubmitSST" style="display:none"></button>

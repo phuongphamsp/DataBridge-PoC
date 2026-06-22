@@ -1144,20 +1144,37 @@ window.addEventListener('DOMContentLoaded', () => {
   // Overlay buttons
   btnOverlayLoad?.addEventListener('click', loadOverlayForCurrent);
   btnOverlayApply?.addEventListener('click', applyOverlayForCurrent);
-  // Girder Summary button
+  try { renderGirderList(); } catch(_) {}
+});
+
+async function renderGirderList() {
+  const listCard = document.getElementById('cardGirderList');
+  const listTbl  = document.getElementById('girderList');
+  if (!listCard || !listTbl) return;
+  const items = treQueue.filter(q => q?.tre?.is_girder || /ge\.tre$/i.test(q?.file?.name || ''))
+    .map(q => ({ label: (q?.file?.name||'').replace(/\.tre$/i,''), file: q.file }));
+  if (!items.length) { listCard.style.display = 'none'; return; }
+  listCard.style.display = 'block';
+  const rows = items.map(it => [
+    `<strong>${it.label}</strong>`,
+    `<button class="btn btn--ghost btn--sm" onclick="buildGirderSummary('${it.label.replace(/'/g, "\'")}')">Open</button>`
+  ]);
+  buildTable(listTbl, ['Girder','Actions'], rows, 'No girders found.');
+}
+
+window.buildGirderSummary = async function(label) {
+  if (!label) return;
+  if (!treQueue.length) { showToast('Upload TRE trước', 'error'); return; }
   try {
-    btnBuildGirderSummary?.addEventListener('click', async () => {
-      const label = (girderLabelInput?.value || '').trim();
-      if (!label) { showToast('Nhập girder label (ví dụ T10)', 'error'); return; }
-      if (!treQueue.length) { showToast('Cần upload TRE trước', 'error'); return; }
-      try {
-        const fd = new FormData();
-        fd.append('girder_label', label);
-        for (const q of treQueue) { if (q.file) fd.append('tre_files', q.file, q.file.name); }
-        if (currentIFCFile) fd.append('ifc', currentIFCFile, currentIFCFile.name);
+    const fd = new FormData();
+    fd.append('girder_label', label);
+    for (const q of treQueue) { if (q.file) fd.append('tre_files', q.file, q.file.name); }
     const res = await fetch(`${API}/api/girder-summary`, { method: 'POST', body: fd });
     const data = await res.json();
     if (!res.ok || !data.ok) { showToast('Girder summary failed', 'error'); return; }
+    if (cardGirderSummary) cardGirderSummary.style.display = 'block';
+    const act = document.getElementById('girderSummaryActions');
+    if (act) act.innerHTML = `<span class="hint">Girder: <strong>${data.girder?.label || label}</strong> · Span ${(data.girder?.span_inches/12).toFixed(2)}'</span>`;
     const rows = (data.rows || []).map(r => [
       `<code>${r.label || '—'}</code>`,
       (r.offset_feet_inches || (r.offset_inches != null ? r.offset_inches.toFixed(2)+'"' : '—')),
@@ -1167,13 +1184,11 @@ window.addEventListener('DOMContentLoaded', () => {
       r.raw ? `<small style="color:var(--text3)">${r.raw}</small>` : '—',
     ]);
     if (girderSummaryTable) buildTable(girderSummaryTable, ['Carried','Offset','Side','Rxn ↓ (lbs)','Uplift ↑ (lbs)','LG raw'], rows, 'No hanger rows.');
-        showToast(`Girder ${data.girder?.label || label}: ${data.girder?.hanger_count ?? rows.length} connects`, 'ok');
-      } catch (e) {
-        showToast('Error: ' + (e?.message || e), 'error');
-      }
-    });
-  } catch(_) {}
-});
+    showToast(`Girder ${data.girder?.label || label}: ${data.girder?.hanger_count ?? rows.length} connects`, 'ok');
+  } catch(e) {
+    showToast('Error: ' + (e?.message || e), 'error');
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 // Right Panel Tab System
