@@ -19,7 +19,7 @@ import base64
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -549,6 +549,73 @@ async def tre_hangers(files: list[UploadFile] = File(...)):
             "hangers": hangers,
         })
     return JSONResponse({"ok": True, "files": results})
+
+
+# ---------------------------------------------------------------------------
+# IFC carry count (label presence cross-check) + TRE hangers labels
+# ---------------------------------------------------------------------------
+
+def _ifc_extract_labels_from_text(text: str) -> set[str]:
+    import re
+    labels = set()
+    # Match IFCELEMENTASSEMBLY( ..., 'LABEL'
+    for line in text.splitlines():
+        m = re.search(r"IFCELEMENTASSEMBLY\s*\([^,]*,\s*[^,]*,\s*'([^']+)'", line, re.I)
+        if m:
+            labels.add(m.group(1).upper())
+    return labels
+
+
+@app.post("/api/ifc-carry-count")
+async def ifc_carry_count(
+    ifc: UploadFile = File(...),
+    girder_label: str = Form(""),
+    tre_files: list[UploadFile] | None = File(None),
+):
+    try:
+        if not (ifc.filename or '').lower().endswith('.ifc'):
+            raise HTTPException(400, "Only .ifc accepted for 'ifc'")
+        ifc_bytes = await ifc.read()
+        ifc_text = ifc_bytes.decode('utf-8', errors='replace')
+        ifc_labels = _ifc_extract_labels_from_text(ifc_text)
+        girder_in_ifc = bool(girder_label) and girder_label.upper() in ifc_labels
+
+        tre_labels: list[str] = []
+        hanger_counts: dict[str, int] = {}
+        if tre_files:
+            for uf in tre_files:
+                try:
+                    content = await uf.read()
+                    text = content.decode('utf-8', errors='replace')
+                    hangers = _extract_hangers_from_tre_text(text)
+                    # Collect labels from TRE hangers when available
+                    for h in hangers:
+                        lab = (h.get('label') or '').strip().upper()
+                        if lab:
+                            tre_labels.append(lab)
+                    hanger_counts[uf.filename] = len(hangers)
+                except Exception:
+                    hanger_counts[uf.filename] = 0
+
+        # Presence intersection
+        unique_tre_labels = sorted(list({*tre_labels}))
+        present = [l for l in unique_tre_labels if l in ifc_labels]
+        missing = [l for l in unique_tre_labels if l not in ifc_labels]
+
+        return JSONResponse({
+            "ok": True,
+            "girder_label": girder_label,
+            "girder_in_ifc": girder_in_ifc,
+            "ifc_label_count": len(ifc_labels),
+            "tre_carried_labels": unique_tre_labels,
+            "present_in_ifc": present,
+            "missing_in_ifc": missing,
+            "tre_hanger_counts": hanger_counts,
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"IFC carry count error: {e}")
 
 
 # ---------------------------------------------------------------------------
