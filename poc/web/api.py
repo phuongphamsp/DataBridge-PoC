@@ -797,6 +797,54 @@ async def girder_summary(
 
 
 # ---------------------------------------------------------------------------
+# Detect girders from a set of TRE files
+# ---------------------------------------------------------------------------
+
+@app.post("/api/detect-girders")
+async def detect_girders(files: list[UploadFile] = File(...)):
+    if not files:
+        raise HTTPException(400, "Upload one or more .tre files")
+    out = []
+    for uf in files:
+        if not (uf.filename or '').lower().endswith('.tre'):
+            continue
+        content = await uf.read()
+        text = content.decode('utf-8', errors='replace')
+        # LG count from Hanger Loading Info.
+        try:
+            lg = _extract_hangers_from_tre_text(text)
+            lg_count = len(lg)
+        except Exception:
+            lg_count = 0
+        # Parse TRE for is_girder flag
+        with tempfile.NamedTemporaryFile(suffix=".tre", delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
+        try:
+            tre = parse_tre(tmp_path)
+            is_girder_flag = bool(getattr(tre, 'is_girder', False))
+        except Exception:
+            is_girder_flag = False
+        finally:
+            tmp_path.unlink(missing_ok=True)
+        base = (uf.filename or '').rsplit('.',1)[0]
+        looks_ge = base.upper().endswith('GE')
+        eff = is_girder_flag or lg_count > 0 or looks_ge
+        out.append({
+            "filename": uf.filename,
+            "label": base,
+            "is_girder": eff,
+            "lg_count": lg_count,
+            "signals": {
+                "tre_is_girder": is_girder_flag,
+                "lg_count": lg_count,
+                "filename_ge": looks_ge,
+            }
+        })
+    return JSONResponse({"ok": True, "girders": [g for g in out if g.get("is_girder")], "all": out})
+
+
+# ---------------------------------------------------------------------------
 # SST submit via direct API (fast — uses Bearer token)
 # ---------------------------------------------------------------------------
 

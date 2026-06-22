@@ -1152,15 +1152,24 @@ async function renderGirderList() {
   const listCard = document.getElementById('cardGirderList');
   const listTbl  = document.getElementById('girderList');
   if (!listCard || !listTbl) return;
-  const items = treQueue.filter(q => q?.tre?.is_girder || /\b(g|ge)\b/i.test((q?.tre?.mmdl_mark||'')) || /ge\.tre$/i.test(q?.file?.name || ''))
-    .map(q => ({ label: (q?.file?.name||'').replace(/\.tre$/i,''), file: q.file }));
-  if (!items.length) { listCard.style.display = 'none'; return; }
-  listCard.style.display = 'block';
-  const rows = items.map(it => [
-    `<strong>${it.label}</strong>`,
-    `<button class="btn btn--ghost btn--sm" onclick="buildGirderSummary('${it.label.replace(/'/g, "\'")}')">Open</button>`
-  ]);
-  buildTable(listTbl, ['Girder','Actions'], rows, 'No girders found.');
+  // Ask backend to detect girders robustly across all TRE in queue
+  const fd = new FormData();
+  for (const q of treQueue) { if (q.file) fd.append('files', q.file, q.file.name); }
+  try {
+    const res = await fetch(`${API}/api/detect-girders`, { method: 'POST', body: fd });
+    const data = await res.json();
+    const items = (data.girders || []).map(g => ({ label: String(g.label||'').replace(/\.tre$/i,''), file: g.filename, lg_count: g.lg_count||0 }));
+    if (!items.length) { listCard.style.display = 'none'; return; }
+    listCard.style.display = 'block';
+    const rows = items.map(it => [
+      `<strong>${it.label}</strong>`,
+      `${it.lg_count} connects`,
+      `<button class=\"btn btn--ghost btn--sm\" onclick=\"buildGirderSummary('${it.label.replace(/'/g, "\\'")}')\">Open</button>`
+    ]);
+    buildTable(listTbl, ['Girder','LG Count','Actions'], rows, 'No girders found.');
+  } catch(e) {
+    listCard.style.display = 'none';
+  }
 }
 
 window.buildGirderSummary = async function(label) {
