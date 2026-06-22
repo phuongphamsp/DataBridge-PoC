@@ -49,9 +49,15 @@ const btnSubmitSST    = document.getElementById('btnSubmitSST');
 const cardIFC         = document.getElementById('cardIFC');
 const ifcMetaGrid     = document.getElementById('ifcMetaGrid');
 const ifcElementsTable= document.getElementById('ifcElementsTable');
-const cardMMDLParsed  = document.getElementById('cardMMDLParsed');
-const mmdlDataGrid    = document.getElementById('mmdlDataGrid');
-const mmdlMarksTable  = document.getElementById('mmdlMarksTable');
+const cardMMDLParsed   = document.getElementById('cardMMDLParsed');
+const mmdlDataGrid     = document.getElementById('mmdlDataGrid');
+const mmdlMarksTable   = document.getElementById('mmdlMarksTable');
+const mmdlEntriesTable = document.getElementById('mmdlEntriesTable');
+const mmdlOverlayTable = document.getElementById('mmdlOverlayTable');
+const mmdlStrJob       = document.getElementById('mmdlStrJob');
+const mmdlStrJobProps  = document.getElementById('mmdlStrJobProps');
+const mmdlStrTrusses   = document.getElementById('mmdlStrTrusses');
+const mmdlStrDesign    = document.getElementById('mmdlStrDesign');
 const cardResults     = document.getElementById('cardResults');
 const resultsBadge    = document.getElementById('resultsBadge');
 const resultsSpinner  = document.getElementById('resultsSpinner');
@@ -419,6 +425,28 @@ async function handleMMDLFile(file) {
         buildGrid(mmdlDataGrid, rows);
         const marks = (data.truss_candidates || []).map((m, i) => [String(i+1), `<code>${m}</code>`]);
         buildTable(mmdlMarksTable, ['#', 'Mark'], marks.slice(0, 100), 'No marks found.');
+        // Entries table
+        if (mmdlEntriesTable) {
+          const ents = (data.entries || []).map(e => [
+            `<code>${e.name || e.filename || '—'}</code>`,
+            e.size != null ? e.size : (e.length != null ? e.length : '—'),
+          ]);
+          buildTable(mmdlEntriesTable, ['Name', 'Size (bytes)'], ents, 'No entries.');
+        }
+        // Overlay suggestions table (if provided by backend)
+        if (mmdlOverlayTable) {
+          const ov = data.overlay_suggested || {};
+          const rowsOv = Object.keys(ov).map(k => [
+            `<code>${k}</code>`, ov[k]?.girder_width || '—', ov[k]?.girder_depth || '—', ov[k]?.girder_ply ?? '—', ov[k]?.king_height ?? '—'
+          ]);
+          buildTable(mmdlOverlayTable, ['Mark', 'Width', 'Depth', 'Ply', 'King Height'], rowsOv, 'No suggestions.');
+        }
+        // String samples
+        const fmt = (arr) => (Array.isArray(arr) ? arr.slice(0, 30).join('\n') : '');
+        if (mmdlStrJob)      mmdlStrJob.textContent      = fmt(data.strings?.job || data.job_strings);
+        if (mmdlStrJobProps) mmdlStrJobProps.textContent = fmt(data.strings?.jobProps || data.jobprops_strings);
+        if (mmdlStrTrusses)  mmdlStrTrusses.textContent  = fmt(data.strings?.trusses || data.trusses_strings);
+        if (mmdlStrDesign)   mmdlStrDesign.textContent   = fmt(data.strings?.trussdesignresults || data.design_strings);
         cardMMDLParsed.style.display = 'block';
       }
     } catch(_) {}
