@@ -1689,6 +1689,8 @@ function _memberClass(type) {
 
 // Fetch geometry from API and render
 async function loadTrussDiagram(file) {
+  // Diagram tab was removed; if SVG element is not present, skip silently
+  if (!trussDiagramSVG) return;
   const fd = new FormData();
   fd.append('file', file);
   try {
@@ -1705,6 +1707,7 @@ async function loadTrussDiagram(file) {
 
 function renderTrussDiagram(geo) {
   const svg = trussDiagramSVG;
+  if (!svg) return;
   const placeholder = document.getElementById('diagramPlaceholder');
   svg.innerHTML = '';
 
