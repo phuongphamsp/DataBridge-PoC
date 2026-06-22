@@ -376,6 +376,8 @@ async function parseTREQueued(file) {
   }
   renderTREQueue();
   renderBatchFromQueue();
+  // Update girder list after each TRE parsed
+  try { renderGirderList(); } catch(_) {}
 }
 
 // ── IFC file handler ──────────────────────────────────────
@@ -1152,6 +1154,8 @@ async function renderGirderList() {
   const listCard = document.getElementById('cardGirderList');
   const listTbl  = document.getElementById('girderList');
   if (!listCard || !listTbl) return;
+  // If no TRE files loaded yet, don't ping backend (avoids 400)
+  if (!treQueue.length) { listCard.style.display = 'none'; return; }
   // Ask backend to detect girders robustly across all TRE in queue
   const fd = new FormData();
   for (const q of treQueue) { if (q.file) fd.append('files', q.file, q.file.name); }
