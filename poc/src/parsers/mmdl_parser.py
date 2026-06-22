@@ -12,12 +12,12 @@ Return a compact JSON-like dict suitable for diagnostics and future mapping.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 import io
 import zipfile
 import string
+import re
 
 
 PRINTABLE = set(string.printable)
@@ -103,9 +103,24 @@ def parse_mmdl(path: str | Path) -> dict:
             if len(suggested_marks) >= 40:
                 break
 
+        # Heuristic extraction of truss "marks" (dataset-style): j02, j03a, j06c, t14ge, t01, ...
+        # Scan raw bytes for token-like segments as well
+        truss_bytes = _read("trusses") or b""
+        token_re = re.compile(rb"(?i)\b([tj][0-9]{1,2}(?:[a-z]{1,2})?)\b")
+        token_hits = [m.group(1).decode("utf-8", "ignore") for m in token_re.finditer(truss_bytes)]
+        # normalise to lower-case unique while preserving order
+        seen: set[str] = set()
+        truss_candidates: list[str] = []
+        for tok in token_hits:
+            k = tok.lower()
+            if k not in seen:
+                seen.add(k)
+                truss_candidates.append(k)
+
     return {
         "zip_offset": pk_off,
         "entries": entries,
         "strings": strings,
         "suggested_marks": list(dict.fromkeys(suggested_marks)),  # de-dup preserve order
+        "truss_candidates": truss_candidates,
     }

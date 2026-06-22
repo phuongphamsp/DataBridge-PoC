@@ -364,6 +364,7 @@ async function handleMMDLFile(file) {
     console.log('zip_offset', data.zip_offset);
     console.table(data.entries || []);
     console.log('suggested_marks', data.suggested_marks || []);
+    console.log('truss_candidates', data.truss_candidates || []);
     console.groupEnd();
     setStatus(`MMDL parsed: ${data.entries?.length || 0} entries`, 'ok');
   } catch (err) {
