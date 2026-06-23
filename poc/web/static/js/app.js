@@ -1185,6 +1185,27 @@ function renderMappingSummary(item) {
       sstField:  'joist_ply',
       sstValue:  s.joist_ply,
     },
+    {
+      treField:  'filename',
+      treValue:  t.filename,
+      rule:      'Strip .tre extension',
+      sstField:  'joist_member_id',
+      sstValue:  s.joist_member_id,
+    },
+    {
+      treField:  'reaction1_lbs',
+      treValue:  `${t.reaction1_lbs} lbs`,
+      rule:      'Max download at left bearing (bearing 0)',
+      sstField:  'joist_load (Download ASD)',
+      sstValue:  `${s.joist_load} lbs`,
+    },
+    {
+      treField:  'uplift1_lbs',
+      treValue:  `${t.uplift1_lbs || 0} lbs`,
+      rule:      'Max uplift at left bearing (stored positive)',
+      sstField:  'joist_uplift (Uplift ASD)',
+      sstValue:  `${s.joist_uplift} lbs`,
+    },
   ] : [
     {
       treField:  '(fixed)',
@@ -1220,6 +1241,27 @@ function renderMappingSummary(item) {
       rule:      'Direct copy',
       sstField:  'truss_ply',
       sstValue:  s.truss_ply,
+    },
+    {
+      treField:  'filename',
+      treValue:  t.filename,
+      rule:      'Strip .tre extension',
+      sstField:  'truss_member_id',
+      sstValue:  s.truss_member_id,
+    },
+    {
+      treField:  'reaction1_lbs',
+      treValue:  `${t.reaction1_lbs} lbs`,
+      rule:      'Max download at left bearing (bearing 0)',
+      sstField:  'truss_load (Download ASD)',
+      sstValue:  `${s.truss_load} lbs`,
+    },
+    {
+      treField:  'uplift1_lbs',
+      treValue:  `${t.uplift1_lbs || 0} lbs`,
+      rule:      'Max uplift at left bearing (stored positive)',
+      sstField:  'truss_uplift (Uplift ASD)',
+      sstValue:  `${s.truss_uplift} lbs`,
     },
   ];
   buildMappingTable('mappingCarriedTable', carriedRows);
@@ -1300,29 +1342,17 @@ function renderMappingSummary(item) {
       sstField:  'girder_total_height',
       sstValue:  s.girder_total_height != null ? `${s.girder_total_height}"` : '—',
     },
+    {
+      treField:  'filename',
+      treValue:  t.filename,
+      rule:      'Prefixed with "Girder-", strip .tre extension',
+      sstField:  'girder_member_id',
+      sstValue:  s.girder_member_id,
+    },
   ];
   buildMappingTable('mappingCarryingTable', carryingRows);
 
-  // ── 4. Loads ──
-  const loadsRows = [
-    {
-      treField:  'reaction1_lbs',
-      treValue:  `${t.reaction1_lbs} lbs`,
-      rule:      'Max download at left bearing (bearing 0)',
-      sstField:  isJoist ? 'joist_load' : 'truss_load',
-      sstValue:  `${isJoist ? s.joist_load : s.truss_load} lbs`,
-    },
-    {
-      treField:  'uplift1_lbs',
-      treValue:  `${t.uplift1_lbs || 0} lbs`,
-      rule:      'Max uplift at left bearing (stored positive from "Max Uplift1=" key)',
-      sstField:  isJoist ? 'joist_uplift' : 'truss_uplift',
-      sstValue:  `${isJoist ? s.joist_uplift : s.truss_uplift} lbs`,
-    },
-  ];
-  buildMappingTable('mappingLoadsTable', loadsRows);
-
-  // ── 5. Hanger Options ──
+  // ── 4. Hanger Options ──
   const h = s.hanger || {};
   const hangerRows = [
     {
