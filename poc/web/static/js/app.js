@@ -16,16 +16,12 @@ let ifcViewer      = null;
 // ── DOM refs ─────────────────────────────────────────────
 const inputTRE        = document.getElementById('inputTRE');
 const inputIFC        = document.getElementById('inputIFC');
-const inputMMDL       = document.getElementById('inputMMDL');
 const btnPickTRE      = document.getElementById('btnPickTRE');
 const btnPickIFC      = document.getElementById('btnPickIFC');
-const btnPickMMDL     = document.getElementById('btnPickMMDL');
 const dropTRE         = document.getElementById('dropTRE');
 const dropIFC         = document.getElementById('dropIFC');
-const dropMMDL        = document.getElementById('dropMMDL');
 const treFileName     = document.getElementById('treFileName');
 const ifcFileName     = document.getElementById('ifcFileName');
-const mmdlFileName    = document.getElementById('mmdlFileName');
 const cardTREQueue    = document.getElementById('cardTREQueue');
 const treQueueList    = document.getElementById('treQueueList');
 const treQueueBadge   = document.getElementById('treQueueBadge');
@@ -35,46 +31,17 @@ const cardTRE         = document.getElementById('cardTRE');
 const treDataGrid     = document.getElementById('treDataGrid');
 const cardSST         = document.getElementById('cardSST');
 const sstInputGrid    = document.getElementById('sstInputGrid');
-// Overlay controls
-const cardOverlay     = document.getElementById('cardOverlay');
-const overlayMark     = document.getElementById('overlayMark');
-const ovSpecies       = document.getElementById('ovSpecies');
-const ovWidth         = document.getElementById('ovWidth');
-const ovDepth         = document.getElementById('ovDepth');
-const ovPly           = document.getElementById('ovPly');
-const ovKH            = document.getElementById('ovKH');
-const btnOverlayLoad  = document.getElementById('btnOverlayLoad');
-const btnOverlayApply = document.getElementById('btnOverlayApply');
 const btnSubmitSST    = document.getElementById('btnSubmitSST');
 const cardIFC         = document.getElementById('cardIFC');
 const ifcMetaGrid     = document.getElementById('ifcMetaGrid');
 const ifcElementsTable= document.getElementById('ifcElementsTable');
-// Removed MMDL analysis cards per request
-const cardMMDLParsed   = null;
-const mmdlDataGrid     = null;
-const mmdlMarksTable   = null;
-const mmdlMarksSummary = null;
-const mmdlEntriesTable = null;
-const mmdlOverlayTable = null;
-const mmdlStrJob       = null;
-const mmdlStrJobProps  = null;
-const mmdlStrTrusses   = null;
-const mmdlStrDesign    = null;
-const mmdlCarryNote    = null;
-const mmdlCarryTable   = null;
-const treHangersTable  = null;
 const cardResults     = document.getElementById('cardResults');
 const resultsBadge    = document.getElementById('resultsBadge');
 const resultsSpinner  = document.getElementById('resultsSpinner');
 const resultsTable    = document.getElementById('resultsTable');
-// Girder Summary card/table
-const cardGirderSummary = document.getElementById('cardGirderSummary');
-const girderSummaryTable = document.getElementById('girderSummaryTable');
 const btnLoadBatch    = document.getElementById('btnLoadBatch');
 const batchTable      = document.getElementById('batchTable');
 const toast           = document.getElementById('toast');
-// Track MMDL context availability heuristically
-let _hasMMDL = false;
 
 // ── Toast ─────────────────────────────────────────────────
 let toastTimer = null;
@@ -180,16 +147,12 @@ btnSetToken?.addEventListener('click', async () => {
 // ── File pick buttons ─────────────────────────────────────
 btnPickTRE.addEventListener('click', () => { inputTRE.click(); });
 btnPickIFC.addEventListener('click', () => { inputIFC.click(); });
-btnPickMMDL.addEventListener('click', () => { inputMMDL.click(); });
 
 inputTRE.addEventListener('change', () => {
   if (inputTRE.files.length) handleTREFiles(Array.from(inputTRE.files));
 });
 inputIFC.addEventListener('change', () => {
   if (inputIFC.files[0]) handleIFCFile(inputIFC.files[0]);
-});
-inputMMDL?.addEventListener('change', () => {
-  if (inputMMDL.files[0]) handleMMDLFile(inputMMDL.files[0]);
 });
 
 // ── Drag & drop for TRE slot ──────────────────────────────
@@ -209,15 +172,6 @@ dropIFC.addEventListener('dragleave', () => dropIFC.classList.remove('drag-over'
 dropIFC.addEventListener('drop', e => {
   e.preventDefault(); dropIFC.classList.remove('drag-over');
   if (e.dataTransfer.files[0]) handleIFCFile(e.dataTransfer.files[0]);
-});
-
-// Drag & drop for MMDL slot
-dropMMDL.addEventListener('click', () => inputMMDL.click());
-dropMMDL.addEventListener('dragover', e => { e.preventDefault(); dropMMDL.classList.add('drag-over'); });
-dropMMDL.addEventListener('dragleave', () => dropMMDL.classList.remove('drag-over'));
-dropMMDL.addEventListener('drop', e => {
-  e.preventDefault(); dropMMDL.classList.remove('drag-over');
-  if (e.dataTransfer.files[0]) handleMMDLFile(e.dataTransfer.files[0]);
 });
 
 // ── TRE file handler (multi-file) ────────────────────────
@@ -322,7 +276,7 @@ function selectTREItem(idx) {
   _updateSubmitButtons();
 }
 
-async function showTREDetail(item) {
+function showTREDetail(item) {
   if (item.tre) {
     renderTREData(item.tre);
     cardTRE.style.display = 'block';
@@ -333,29 +287,8 @@ async function showTREDetail(item) {
     btnSubmitSST.disabled = false;
     currentTREFile = item.file;
   }
-  // Show Overlay panel when have MMDL mark
-  if (item.tre?.mmdl_mark) {
-    if (cardOverlay) cardOverlay.style.display = 'block';
-    if (overlayMark) { overlayMark.style.display = ''; overlayMark.textContent = item.tre.mmdl_mark; }
-  } else {
-    if (cardOverlay) cardOverlay.style.display = 'none';
-  }
   // Load 2D diagram (Diagram tab)
   loadTrussDiagram(item.file);
-  // If MMDL source selected, try load plan image as diagram
-  if (typeof diagramSource !== 'undefined' && diagramSource?.value === 'mmdl') {
-    try {
-      const img = document.getElementById('mmdlPlanImg2');
-      const wrap = document.getElementById('mmdlDiagram');
-      const svg  = document.getElementById('trussDiagramSVG');
-      const ping = await fetch(`${API}/api/mmdl-plan.png`, { method: 'GET' });
-      if (ping.ok && img && wrap && svg) {
-        const blob = await ping.blob(); const url = URL.createObjectURL(blob);
-        img.onload = () => { try { URL.revokeObjectURL(url); } catch(e) {} };
-        img.src = url; svg.style.display = 'none'; wrap.style.display = '';
-      }
-    } catch(e) { /* ignore */ }
-  }
 }
 
 async function parseTREQueued(file) {
@@ -379,8 +312,6 @@ async function parseTREQueued(file) {
   }
   renderTREQueue();
   renderBatchFromQueue();
-  // Update girder list after each TRE parsed
-  try { renderGirderList(); } catch(_) {}
 }
 
 // ── IFC file handler ──────────────────────────────────────
@@ -392,140 +323,6 @@ async function handleIFCFile(file) {
   showToast(`Loading IFC ${file.name}…`, 'info');
   cardIFC.style.display = 'none';
   await parseIFC(file);
-}
-
-// ── MMDL file handler ───────────────────────────────────────────────────────
-async function handleMMDLFile(file) {
-  mmdlFileName.textContent = file.name;
-  dropMMDL.classList.add('loaded');
-  setStatus(`Parsing MMDL ${file.name}…`, 'info');
-
-  const fd = new FormData();
-  fd.append('file', file);
-  try {
-    const res = await fetch(`${API}/api/parse-mmdl`, { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      setStatus(`MMDL Error: ${data.detail || data.error}`, 'error');
-      showToast('MMDL parse failed', 'error');
-      return;
-    }
-    // Show a brief toast + console dump for now (diagnostic)
-    showToast(`MMDL parsed: ${data.entries?.length || 0} entries`, 'ok');
-    console.groupCollapsed('MMDL Summary');
-    console.log('zip_offset', data.zip_offset);
-    console.table(data.entries || []);
-    console.log('suggested_marks', data.suggested_marks || []);
-    console.log('truss_candidates', data.truss_candidates || []);
-    if (data.overlay_suggested) {
-      console.table(Object.entries(data.overlay_suggested).map(([k,v]) => ({ mark:k, ...v })));
-    }
-    console.groupEnd();
-    setStatus(`MMDL parsed: ${data.entries?.length || 0} entries`, 'ok');
-    _hasMMDL = true;
-    // Render parsed card
-    try {
-      if (cardMMDLParsed && mmdlDataGrid && mmdlMarksTable) {
-        const rows = [
-          { label: 'Filename', value: data.filename || file.name, wide: true },
-          { label: 'ZIP Offset', value: typeof data.zip_offset === 'number' ? data.zip_offset : '—' },
-          { label: 'Entries', value: Array.isArray(data.entries) ? data.entries.length : '—' },
-          { label: 'Has Plan PNG', value: (data.entries||[]).some(e => (e.name||'').toLowerCase().includes('plan')) ? 'Yes' : '—' },
-        ];
-        buildGrid(mmdlDataGrid, rows);
-        const marksArr = Array.isArray(data.truss_candidates) ? data.truss_candidates : [];
-        // Summary: counts by family prefix
-        if (mmdlMarksSummary) {
-          const families = {};
-          for (const mk of marksArr) {
-            const m = String(mk||'').toUpperCase();
-            const fam = /^[A-Z]+/.exec(m)?.[0] || 'UNKNOWN';
-            families[fam] = (families[fam]||0) + 1;
-          }
-          const famRows = Object.entries(families).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:k, value:v}));
-          const extras = [
-            { label: 'Total Unique Marks', value: marksArr.length },
-          ];
-          buildGrid(mmdlMarksSummary, [...extras, ...famRows]);
-        }
-        // Detailed table with regex-based features
-        const marks = marksArr.map((raw, i) => {
-          const m = String(raw||'');
-          const upper = m.toUpperCase();
-          const base = upper.replace(/[-_].*$/, '');
-          const type = /^[A-Z]+/.exec(upper)?.[0] || '';
-          const num  = (upper.match(/\d+/)||[''])[0];
-          const suf  = (upper.match(/[A-Z]+$/)||[''])[0].replace(type,'');
-          const isGirder = /G|GE/.test(suf) || /GIRDER/.test(upper);
-          return [
-            String(i+1),
-            `<code>${upper}</code>`,
-            type || '—',
-            num  || '—',
-            suf  || '—',
-            isGirder ? '<span class="tag tag--joist" style="background:rgba(245,158,11,.15);color:#f59e0b">Yes</span>' : '—',
-          ];
-        });
-        buildTable(mmdlMarksTable, ['#','Mark','Type','Index','Suffix','Girder?'], marks.slice(0, 300), 'No marks found.');
-        // Entries table
-        // Removed extra MMDL analysis sections per request
-        cardMMDLParsed.style.display = 'block';
-      }
-    } catch(_) {}
-
-    // Fetch carrying graph (heuristic) to reveal girder↔carried relations
-    try {
-      const gRes = await fetch(`${API}/api/mmdl-carry-graph`);
-      const gData = await gRes.json();
-      // Removed carrying graph rendering per request
-    } catch(_) {}
-
-    // Cross-check: TRE hanger offsets extracted from uploaded TRE files
-    try {
-      // Removed TRE hanger cross-check table per request
-    } catch(_) {}
-    // If we already have TRE files parsed, call join to annotate
-    try {
-      const names = treQueue.map(q => q.file?.name).filter(Boolean);
-      if (names.length) {
-        const resj = await fetch(`${API}/api/mmdl-join`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filenames: names })
-        });
-        const dj = await resj.json();
-        if (resj.ok && dj.ok) {
-          const map = new Map(dj.matches.map(m => [m.filename, m.mmdl_mark]));
-          for (const item of treQueue) {
-            const mk = map.get(item.file?.name);
-            if (mk && item.tre) item.tre.mmdl_mark = mk;
-          }
-          renderTREQueue();
-          const cur = treQueue.find(q => q.file === currentTREFile);
-          if (cur?.tre) renderTREData(cur.tre);
-        }
-      }
-    } catch(e) { /* silent */ }
-    // Try to load plan image
-    try {
-      const imgEl = document.getElementById('mmdlPlanImg');
-      const card = document.getElementById('cardMMDLPlan');
-      // Silently ignore if plan not available (404)
-      const ping = await fetch(`${API}/api/mmdl-plan.png`, { method: 'GET' });
-      if (ping.ok && imgEl && card) {
-        const blob = await ping.blob();
-        const url = URL.createObjectURL(blob);
-        imgEl.onload = () => { try { URL.revokeObjectURL(url); } catch(e) {} };
-        imgEl.src = url;
-        card.style.display = 'block';
-      } else if (card) {
-        card.style.display = 'none';
-      }
-    } catch(e) { /* ignore */ }
-  } catch (err) {
-    setStatus(`MMDL network error: ${err.message}`, 'error');
-  }
-  // Show girder summary card when MMDL present
-  try { if (cardGirderSummary) cardGirderSummary.style.display = 'block'; } catch(_) {}
 }
 
 // ── Parse TRE ─────────────────────────────────────────────
@@ -570,7 +367,6 @@ function renderTREData(t) {
 
   const rows = [
     { label: 'Filename',        value: t.filename,          wide: true },
-    { label: 'MMDL Mark',       value: t.mmdl_mark || '—' },
     { label: 'Truss Type',      value: `${t.truss_type_label} (${t.truss_type_code})`, wide: true },
     { label: 'Span',            value: `${t.span_inches}"  (${(t.span_inches/12).toFixed(3)}')` },
     { label: 'Pitch',           value: pitchStr },
@@ -615,50 +411,6 @@ function renderSSTInputs(sst) {
   }
   flattenObj(sst);
   buildGrid(sstInputGrid, rows);
-}
-
-// ── Overlay helpers ─────────────────────────────────────────────────────────
-async function loadOverlayForCurrent() {
-  const mark = _analyzerItem?.tre?.mmdl_mark;
-  if (!mark) { showToast('No MMDL mark for current TRE', 'error'); return; }
-  try {
-    const res = await fetch(`${API}/api/mmdl-overlay`);
-    const data = await res.json();
-    if (!res.ok || !data.ok) return;
-    const ov = data.overlay?.[mark.toLowerCase()] || {};
-    if (ovSpecies) ovSpecies.value = ov.girder_species || '';
-    if (ovWidth)   ovWidth.value   = ov.girder_width   || '';
-    if (ovDepth)   ovDepth.value   = ov.girder_depth   || '';
-    if (ovPly)     ovPly.value     = ov.girder_ply     ?? '';
-    if (ovKH)      ovKH.value      = ov.king_height    ?? '';
-    showToast('Overlay loaded', 'ok');
-  } catch(e) {
-    showToast('Overlay load failed', 'error');
-  }
-}
-
-async function applyOverlayForCurrent() {
-  const mark = _analyzerItem?.tre?.mmdl_mark;
-  if (!mark) { showToast('No MMDL mark for current TRE', 'error'); return; }
-  const body = {
-    mark,
-    girder_species: ovSpecies?.value || null,
-    girder_width:   ovWidth?.value   || null,
-    girder_depth:   ovDepth?.value   || null,
-    girder_ply:     ovPly?.value ? Number(ovPly.value) : null,
-    king_height:    ovKH?.value  ? Number(ovKH.value)  : null,
-  };
-  try {
-    const res = await fetch(`${API}/api/mmdl-set-props`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) { showToast('Overlay apply failed', 'error'); return; }
-    showToast('Overlay applied', 'ok');
-  } catch(e) {
-    showToast('Overlay apply failed', 'error');
-  }
 }
 
 // ── Submit to SST ─────────────────────────────────────────
@@ -1147,91 +899,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initRightTabs();
   initAnalyzerTabs();
   checkTokenStatus();
-  // Overlay buttons
-  btnOverlayLoad?.addEventListener('click', loadOverlayForCurrent);
-  btnOverlayApply?.addEventListener('click', applyOverlayForCurrent);
-  try { renderGirderList(); } catch(_) {}
 });
-
-async function renderGirderList() {
-  const listCard = document.getElementById('cardGirderList');
-  const listTbl  = document.getElementById('girderList');
-  if (!listCard || !listTbl) return;
-  // If no TRE files loaded yet, don't ping backend (avoids 400)
-  if (!treQueue.length) { listCard.style.display = 'none'; return; }
-  // Ask backend to detect girders robustly across all TRE in queue
-  const fd = new FormData();
-  for (const q of treQueue) { if (q.file) fd.append('files', q.file, q.file.name); }
-  try {
-    const res = await fetch(`${API}/api/detect-girders`, { method: 'POST', body: fd });
-    const data = await res.json();
-    let items = (data.girders || []).map(g => ({ label: String(g.label||'').replace(/\.tre$/i,''), file: g.filename, lg_count: g.lg_count||0 }));
-    // Fallback to local heuristic if backend returns empty
-    if (!items.length) {
-      items = treQueue
-        .filter(q => q?.tre?.is_girder || /ge\.tre$/i.test(q?.file?.name || ''))
-        .map(q => ({ label: (q?.file?.name||'').replace(/\.tre$/i,''), file: q.file?.name, lg_count: 0 }));
-    }
-    if (!items.length) { listCard.style.display = 'none'; return; }
-    listCard.style.display = 'block';
-    const rows = items.map(it => {
-      const safeLabel = it.label.replace(/'/g, "\\'");
-      const uid = `btnOpen_${safeLabel}_${Math.random().toString(36).slice(2,7)}`;
-      // Render a real button without inline onclick to avoid escaping issues
-      setTimeout(() => {
-        const el = document.getElementById(uid);
-        if (el) el.onclick = () => buildGirderSummary(it.label);
-      }, 0);
-      return [
-        `<strong>${it.label}</strong>`,
-        `${it.lg_count} connects`,
-        `<button id="${uid}" class=\"btn btn--ghost btn--sm\">Open</button>`
-      ];
-    });
-    buildTable(listTbl, ['Girder','LG Count','Actions'], rows, 'No girders found.');
-  } catch(e) {
-    // Fallback entirely local
-    const items = treQueue
-      .filter(q => q?.tre?.is_girder || /ge\.tre$/i.test(q?.file?.name || ''))
-      .map(q => ({ label: (q?.file?.name||'').replace(/\.tre$/i,''), file: q.file?.name, lg_count: 0 }));
-    if (!items.length) { listCard.style.display = 'none'; return; }
-    listCard.style.display = 'block';
-    const rows = items.map(it => [
-      `<strong>${it.label}</strong>`,
-      `—`,
-      `<button class=\"btn btn--ghost btn--sm\" onclick=\"buildGirderSummary('${it.label.replace(/'/g, "\\'")}')\">Open</button>`
-    ]);
-    buildTable(listTbl, ['Girder','LG Count','Actions'], rows, 'No girders found.');
-  }
-}
-
-window.buildGirderSummary = async function(label) {
-  if (!label) return;
-  if (!treQueue.length) { showToast('Upload TRE trước', 'error'); return; }
-  try {
-    const fd = new FormData();
-    fd.append('girder_label', label);
-    for (const q of treQueue) { if (q.file) fd.append('tre_files', q.file, q.file.name); }
-    const res = await fetch(`${API}/api/girder-summary`, { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok || !data.ok) { showToast('Girder summary failed', 'error'); return; }
-    if (cardGirderSummary) cardGirderSummary.style.display = 'block';
-    const act = document.getElementById('girderSummaryActions');
-    if (act) act.innerHTML = `<span class="hint">Girder: <strong>${data.girder?.label || label}</strong> · Span ${(data.girder?.span_inches/12).toFixed(2)}'</span>`;
-    const rows = (data.rows || []).map(r => [
-      `<code>${r.label || '—'}</code>`,
-      (r.offset_feet_inches || (r.offset_inches != null ? r.offset_inches.toFixed(2)+'"' : '—')),
-      r.side || '—',
-      r.download_lbs != null ? r.download_lbs : '—',
-      r.uplift_lbs   != null ? r.uplift_lbs   : '—',
-      r.raw ? `<small style="color:var(--text3)">${r.raw}</small>` : '—',
-    ]);
-    if (girderSummaryTable) buildTable(girderSummaryTable, ['Carried','Offset','Side','Rxn ↓ (lbs)','Uplift ↑ (lbs)','LG raw'], rows, 'No hanger rows.');
-    showToast(`Girder ${data.girder?.label || label}: ${data.girder?.hanger_count ?? rows.length} connects`, 'ok');
-  } catch(e) {
-    showToast('Error: ' + (e?.message || e), 'error');
-  }
-}
 
 // ═══════════════════════════════════════════════════════════
 // Right Panel Tab System
@@ -1714,7 +1382,6 @@ const cardDiagram    = document.getElementById('cardDiagram');
 const trussDiagramSVG= document.getElementById('trussDiagramSVG');
 const diagramLabel   = document.getElementById('diagramLabel');
 const btnDiagramFit  = document.getElementById('btnDiagramFit');
-const diagramSource  = document.getElementById('diagramSource');
 
 // Pan/zoom state
 let _diagramGeo  = null;   // last loaded geometry response
@@ -1735,8 +1402,6 @@ function _memberClass(type) {
 
 // Fetch geometry from API and render
 async function loadTrussDiagram(file) {
-  // Diagram tab was removed; if SVG element is not present, skip silently
-  if (!trussDiagramSVG) return;
   const fd = new FormData();
   fd.append('file', file);
   try {
@@ -1753,7 +1418,6 @@ async function loadTrussDiagram(file) {
 
 function renderTrussDiagram(geo) {
   const svg = trussDiagramSVG;
-  if (!svg) return;
   const placeholder = document.getElementById('diagramPlaceholder');
   svg.innerHTML = '';
 

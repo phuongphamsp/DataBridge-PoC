@@ -29,38 +29,28 @@
     <!-- Upload Zone -->
     <div class="card">
       <div class="card__title">1 · Upload Files</div>
-        <div class="upload-two-col">
-          <!-- TRE upload (multi-file) -->
-          <div class="upload-slot">
-            <div class="upload-slot__label">TRE Files <span class="upload-slot__hint">engineering data + SST</span></div>
-            <div class="upload-slot__drop" id="dropTRE">
-              <span class="upload-slot__icon">&#128196;</span>
-              <span id="treFileName">No file selected</span>
-            </div>
-            <input type="file" id="inputTRE" accept=".tre" multiple hidden />
-            <button class="btn btn--primary btn--full" id="btnPickTRE">Select TRE File(s)</button>
+      <div class="upload-two-col">
+        <!-- TRE upload (multi-file) -->
+        <div class="upload-slot">
+          <div class="upload-slot__label">TRE Files <span class="upload-slot__hint">engineering data + SST</span></div>
+          <div class="upload-slot__drop" id="dropTRE">
+            <span class="upload-slot__icon">&#128196;</span>
+            <span id="treFileName">No file selected</span>
           </div>
-          <!-- IFC upload -->
-          <div class="upload-slot">
-            <div class="upload-slot__label">IFC File <span class="upload-slot__hint">3D viewer</span></div>
-            <div class="upload-slot__drop" id="dropIFC">
-              <span class="upload-slot__icon">&#127968;</span>
-              <span id="ifcFileName">No file selected</span>
-            </div>
-            <input type="file" id="inputIFC" accept=".ifc" hidden />
-            <button class="btn btn--secondary btn--full" id="btnPickIFC">Select IFC File</button>
-          </div>
-          <!-- MMDL upload -->
-          <div class="upload-slot">
-            <div class="upload-slot__label">MMDL File <span class="upload-slot__hint">layout/job context</span></div>
-            <div class="upload-slot__drop" id="dropMMDL">
-              <span class="upload-slot__icon">&#128230;</span>
-              <span id="mmdlFileName">No file selected</span>
-            </div>
-            <input type="file" id="inputMMDL" accept=".mmdl" hidden />
-            <button class="btn btn--ghost btn--full" id="btnPickMMDL">Select MMDL File</button>
-          </div>
+          <input type="file" id="inputTRE" accept=".tre" multiple hidden />
+          <button class="btn btn--primary btn--full" id="btnPickTRE">Select TRE File(s)</button>
         </div>
+        <!-- IFC upload -->
+        <div class="upload-slot">
+          <div class="upload-slot__label">IFC File <span class="upload-slot__hint">3D viewer</span></div>
+          <div class="upload-slot__drop" id="dropIFC">
+            <span class="upload-slot__icon">&#127968;</span>
+            <span id="ifcFileName">No file selected</span>
+          </div>
+          <input type="file" id="inputIFC" accept=".ifc" hidden />
+          <button class="btn btn--secondary btn--full" id="btnPickIFC">Select IFC File</button>
+        </div>
+      </div>
       <div id="uploadStatus" class="status-bar" style="display:none"></div>
 
       <!-- SST Bearer Token -->
@@ -95,98 +85,12 @@
       <div id="treDataGrid" class="data-grid"></div>
     </div>
 
-    <!-- MMDL Overlay (manual enrich) -->
-    <div class="card" id="cardOverlay" style="display:none">
-      <div class="card__title">2 · MMDL Overlay <span class="badge" id="overlayMark" style="display:none"></span></div>
-      <div class="data-grid">
-        <div class="data-grid__item">
-          <div class="data-grid__label">Girder Species</div>
-          <div class="data-grid__value"><select id="ovSpecies">
-            <option value="">—</option>
-            <option>DF (Douglas Fir)</option>
-            <option>HF (Hem Fir)</option>
-            <option>SP (Southern Pine)</option>
-            <option>SPF (Spruce Pine Fir)</option>
-          </select></div>
-        </div>
-        <div class="data-grid__item">
-          <div class="data-grid__label">Girder Width</div>
-          <div class="data-grid__value"><select id="ovWidth">
-            <option value="">—</option>
-            <option>2x (1 1/2")</option>
-            <option>3x (2 1/2")</option>
-            <option>4x (3 1/2")</option>
-            <option>6x (5 1/2")</option>
-            <option>8x (7 1/2")</option>
-          </select></div>
-        </div>
-        <div class="data-grid__item">
-          <div class="data-grid__label">Girder Depth</div>
-          <div class="data-grid__value"><select id="ovDepth">
-            <option value="">—</option>
-            <option>4 (3 1/2")</option>
-            <option>5 (4 1/2")</option>
-            <option>6 (5 1/2")</option>
-            <option>8 (7 1/4")</option>
-            <option>10 (9 1/4")</option>
-            <option>12 (11 1/4")</option>
-            <option>14 (13 1/4")</option>
-            <option>16 (15 1/4")</option>
-          </select></div>
-        </div>
-        <div class="data-grid__item">
-          <div class="data-grid__label">Girder Ply</div>
-          <div class="data-grid__value"><input id="ovPly" type="number" min="1" max="4" placeholder="—" style="width:90px" /></div>
-        </div>
-        <div class="data-grid__item">
-          <div class="data-grid__label">King Height (in)</div>
-          <div class="data-grid__value"><input id="ovKH" type="number" min="0" step="0.01" placeholder="—" style="width:120px" /></div>
-        </div>
-      </div>
-      <div class="card__actions">
-        <button class="btn btn--ghost btn--sm" id="btnOverlayLoad">Load</button>
-        <button class="btn btn--accent btn--sm" id="btnOverlayApply">Apply</button>
-      </div>
-    </div>
-
-      <!-- MMDL Plan View (kept minimal) -->
-      <div class="card" id="cardMMDLPlan" style="display:none">
-        <div class="card__title">2 · MMDL Plan View</div>
-        <div style="padding:8px 12px;color:var(--text3);font-size:12px">Preview of structural plan extracted from .mmdl (if available)</div>
-        <div style="padding:8px 12px"><img id="mmdlPlanImg" alt="Plan View" style="max-width:100%;border:1px solid var(--bg3);border-radius:6px" /></div>
-      </div>
-
     <!-- SST Mapped Inputs -->
-      <div class="card" id="cardSST" style="display:none">
-        <div class="card__title">3 · SST Mapped Inputs</div>
+    <div class="card" id="cardSST" style="display:none">
+      <div class="card__title">3 · SST Mapped Inputs</div>
       <div id="sstInputGrid" class="data-grid"></div>
-      <div class="card__actions">
-        <button class="btn btn--ghost btn--sm" id="btnDebugPayload">Debug Payload</button>
-        <span class="hint" id="overlayNote"></span>
-      </div>
-
-      <!-- Girder List (from TRE queue) -->
-      <div class="card" id="cardGirderList" style="display:none">
-        <div class="card__title">3 · Girders</div>
-        <div id="girderList" class="table-wrap"></div>
-      </div>
-
-      <!-- Girder Summary (TRE) -->
-      <div class="card" id="cardGirderSummary" style="display:none">
-        <div class="card__title">3 · Girder Summary (TRE)</div>
-        <div class="card__actions" id="girderSummaryActions"></div>
-        <div id="girderSummaryTable" class="table-wrap"></div>
-      </div>
       <button id="btnSubmitSST" style="display:none"></button>
       <button class="btn btn--ghost btn--sm" id="btnSubmitSSTPlaywright" disabled style="display:none"></button>
-    </div>
-
-    <!-- Payload Debug -->
-    <div class="card" id="cardPayload" style="display:none">
-      <div class="card__title">Payload (Debug) <span class="badge" id="payloadConn"></span></div>
-      <div style="padding:8px 12px">
-        <pre id="payloadPre" style="max-height:320px;overflow:auto;background:var(--bg2);padding:12px;border-radius:6px"></pre>
-      </div>
     </div>
 
     <!-- IFC Metadata (shown when IFC uploaded) -->
@@ -204,12 +108,31 @@
 
     <!-- Tab bar -->
     <div class="right-tabs">
+      <button class="right-tab" data-tab="tabDiagram" style="display:none">Diagram</button>
       <button class="right-tab active" data-tab="tabAnalyzer">Truss Analyzer</button>
       <button class="right-tab" data-tab="tabIFC" style="display:none">IFC Viewer</button>
       <button class="right-tab" data-tab="tabResults">Results</button>
     </div>
 
-    
+    <!-- ── TAB: Diagram ── -->
+    <div class="right-tab-panel" id="tabDiagram">
+      <div class="card card--diagram" id="cardDiagram">
+        <div class="viewer-toolbar">
+          <span class="viewer-toolbar__title">2D Truss Diagram</span>
+          <div class="viewer-toolbar__actions">
+            <span id="diagramLabel" style="font-size:0.78rem;opacity:0.6;color:var(--text2)"></span>
+            <button class="btn btn--ghost btn--sm" id="btnDiagramFit">Fit</button>
+          </div>
+        </div>
+        <div id="trussdiagramWrap" class="truss-diagram-wrap">
+          <div class="viewer-placeholder" id="diagramPlaceholder">
+            <div class="viewer-placeholder__icon">&#9783;</div>
+            <div>Select a TRE file from the queue to view its diagram</div>
+          </div>
+          <svg id="trussDiagramSVG" class="truss-diagram-svg" xmlns="http://www.w3.org/2000/svg" style="display:none"></svg>
+        </div>
+      </div>
+    </div>
 
     <!-- ── TAB: Truss Analyzer ── -->
     <div class="right-tab-panel active" id="tabAnalyzer">
